@@ -1,23 +1,54 @@
 // Centralized Service Layer for Jikan API v4 (MyAnimeList)
 const BASE_URL = 'https://api.jikan.moe/v4'
 
-// Simple in-memory cache to prevent duplicate requests and 429 Rate Limits
-const cache = {}
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes TTL
+const CACHE_TTL = 15 * 60 * 1000
+const RETRY_DELAYS = [1000, 2000]
+const isDevelopment = import.meta.env.DEV
+
+const cache = new Map()
+const pendingRequests = new Map()
+
+function logCache(message, key) {
+  if (isDevelopment) {
+    console.info(`[AnimeLoom API] ${message}: ${key}`)
+  }
+}
 
 function getFromCache(key) {
-  const entry = cache[key]
-  if (entry && (Date.now() - entry.timestamp < CACHE_DURATION)) {
-    return entry.data
+  const entry = cache.get(key)
+
+  if (!entry) {
+    logCache('Cache Miss', key)
+    return null
   }
-  return null
+
+  if (Date.now() - entry.timestamp > CACHE_TTL) {
+    cache.delete(key)
+    logCache('Cache Miss', key)
+    return null
+  }
+
+  logCache('Cache Hit', key)
+  return entry.data
 }
 
 function setToCache(key, data) {
-  cache[key] = {
+  cache.set(key, {
     data,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+  })
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getFriendlyError(status) {
+  if (status === 429) {
+    return 'Anime data is temporarily busy. Please wait a moment and try again.'
   }
+
+  return 'Unable to load anime data. Please try again.'
 }
 
 /**
@@ -43,41 +74,67 @@ function mapJikanAnime(raw) {
 
 export const animeService = {
   /**
-   * Helper fetcher with retries and rate limit checks
+   * Helper fetcher with cache, request deduplication, and retry handling.
    */
-  async _fetch(endpoint, retries = 2, delay = 1000) {
-    const cacheKey = endpoint
+  async _fetch(cacheKey, endpoint) {
     const cachedData = getFromCache(cacheKey)
     if (cachedData) return cachedData
 
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const response = await fetch(`${BASE_URL}${endpoint}`)
-        
-        if (response.status === 429) {
-          if (attempt < retries) {
-            console.warn(`Jikan API 429 rate limit. Retrying in ${delay}ms... (Attempt ${attempt + 1}/${retries})`)
-            await new Promise(resolve => setTimeout(resolve, delay))
+    if (pendingRequests.has(cacheKey)) {
+      return pendingRequests.get(cacheKey)
+    }
+
+    const request = (async () => {
+      let lastStatus = null
+
+      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+        try {
+          const response = await fetch(`${BASE_URL}${endpoint}`)
+          lastStatus = response.status
+
+          if (response.ok) {
+            const json = await response.json()
+            setToCache(cacheKey, json)
+            return json
+          }
+
+          const shouldRetry =
+            response.status === 429 || response.status >= 500
+
+          if (!shouldRetry) {
+            throw new Error(getFriendlyError(response.status))
+          }
+
+          if (attempt < RETRY_DELAYS.length) {
+            await wait(RETRY_DELAYS[attempt])
             continue
           }
-          throw new Error('API Rate limit exceeded. Please wait a moment.')
-        }
 
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`)
-        }
+          throw new Error(getFriendlyError(response.status))
+        } catch (error) {
+          const isFriendlyError =
+            error.message === getFriendlyError(lastStatus)
 
-        const json = await response.json()
-        setToCache(cacheKey, json)
-        return json
-      } catch (error) {
-        if (attempt === retries) {
-          console.error(`Error fetching from Jikan endpoint [${endpoint}]:`, error)
-          throw error
+          if (isFriendlyError) {
+            throw error
+          }
+
+          if (attempt < RETRY_DELAYS.length) {
+            await wait(RETRY_DELAYS[attempt])
+            continue
+          }
+
+          throw new Error(getFriendlyError(lastStatus), { cause: error })
         }
-        console.warn(`Fetch error occurred. Retrying in ${delay}ms... (Attempt ${attempt + 1}/${retries})`, error)
-        await new Promise(resolve => setTimeout(resolve, delay))
       }
+    })()
+
+    pendingRequests.set(cacheKey, request)
+
+    try {
+      return await request
+    } finally {
+      pendingRequests.delete(cacheKey)
     }
   },
 
@@ -85,7 +142,10 @@ export const animeService = {
    * Fetches trending/popular anime
    */
   async getTrendingAnime() {
-    const res = await this._fetch('/top/anime?filter=bypopularity&limit=5')
+    const res = await this._fetch(
+      'trendingAnime',
+      '/top/anime?filter=bypopularity&limit=5'
+    )
     return (res.data || []).map(mapJikanAnime)
   },
 
@@ -93,7 +153,7 @@ export const animeService = {
    * Fetches top anime (by score/rank)
    */
   async getTopAnime() {
-    const res = await this._fetch('/top/anime?limit=5')
+    const res = await this._fetch('topAnime', '/top/anime?limit=5')
     return (res.data || []).map(mapJikanAnime)
   },
 
@@ -101,7 +161,21 @@ export const animeService = {
    * Fetches top airing anime
    */
   async getTopAiringAnime() {
-    const res = await this._fetch('/top/anime?filter=airing&limit=5')
+    const res = await this._fetch(
+      'topAiringAnime',
+      '/top/anime?filter=airing&limit=5'
+    )
+    return (res.data || []).map(mapJikanAnime)
+  },
+
+  /**
+   * Fetches top anime movies.
+   */
+  async getTopMovies() {
+    const res = await this._fetch(
+      'topMovies',
+      '/top/anime?type=movie&limit=5'
+    )
     return (res.data || []).map(mapJikanAnime)
   },
 
@@ -109,7 +183,10 @@ export const animeService = {
    * Fetches popular anime this week
    */
   async getPopularThisWeek() {
-    const res = await this._fetch('/top/anime?filter=favorite&limit=5')
+    const res = await this._fetch(
+      'popularThisWeek',
+      '/top/anime?filter=favorite&limit=5'
+    )
     return (res.data || []).map(mapJikanAnime)
   },
 
@@ -117,7 +194,7 @@ export const animeService = {
    * Fetches full anime details by MAL ID
    */
   async getAnimeDetails(id) {
-    const res = await this._fetch(`/anime/${id}/full`)
+    const res = await this._fetch(`animeDetails:${id}`, `/anime/${id}/full`)
     return mapJikanAnime(res.data)
   },
 
@@ -125,7 +202,10 @@ export const animeService = {
    * Fetches related anime/recommendations
    */
   async getRelatedAnime(id) {
-    const res = await this._fetch(`/anime/${id}/recommendations`)
+    const res = await this._fetch(
+      `relatedAnime:${id}`,
+      `/anime/${id}/recommendations`
+    )
     return (res.data || []).slice(0, 5).map(rec => ({
       mal_id: rec.entry.mal_id,
       title: rec.entry.title,
@@ -139,7 +219,11 @@ export const animeService = {
    * Searches for anime by query
    */
   async searchAnime(query) {
-    const res = await this._fetch(`/anime?q=${encodeURIComponent(query)}&limit=24`)
+    const normalizedQuery = query.trim().toLowerCase()
+    const res = await this._fetch(
+      `search:${normalizedQuery}`,
+      `/anime?q=${encodeURIComponent(normalizedQuery)}&limit=24`
+    )
     return (res.data || []).map(mapJikanAnime)
   }
 }

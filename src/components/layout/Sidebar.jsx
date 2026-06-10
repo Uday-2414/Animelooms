@@ -2,6 +2,7 @@ import { useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { Home, Search, Bookmark, Trophy, FileText, User, LogOut } from 'lucide-react'
 import AuthContext from '../../context/AuthContext'
+import LogoName from '../../assets/Logo-name.png'
 
 export default function Sidebar() {
   const navigate = useNavigate()
@@ -29,12 +30,17 @@ export default function Sidebar() {
           onClick={() => navigate('/')}
           className="px-8 flex items-center gap-3 cursor-pointer group"
         >
-          <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white font-logo font-black text-xl shadow-[0_0_15px_rgba(192,57,43,0.4)] group-hover:scale-105 transition-all duration-300">
+          {/* <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white font-logo font-black text-xl shadow-[0_0_15px_rgba(192,57,43,0.4)] group-hover:scale-105 transition-all duration-300">
             A
           </div>
           <span className="font-logo font-bold text-lg tracking-wider text-white group-hover:text-brand transition-colors duration-300">
             AnimeLoom
-          </span>
+          </span> */}
+          <img
+            src={LogoName}
+            alt="AnimeLoom Logo"
+            className="w-auto h-20 object-contain"
+          />
         </div>
 
         {/* Navigation Links */}

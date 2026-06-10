@@ -16,7 +16,7 @@ export default function NewsCard({
   news,
   className = ''
 }) {
-  const { title, excerpt, image_url, date, author, url } = news
+  const { title, excerpt, image_url, date, source, author, url } = news
 
   return (
     <article className={`flex flex-col md:flex-row bg-surface-card border border-white/5 rounded-2xl overflow-hidden transition-all duration-300 hover:border-brand/20 hover:shadow-glow ${className}`}>
@@ -37,6 +37,12 @@ export default function NewsCard({
         <div className="space-y-2">
           {/* Metadata */}
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 font-ui">
+            {source && (
+              <span className="text-brand uppercase tracking-widest">
+                {source}
+              </span>
+            )}
+            {source && date && <span className="text-white/10">•</span>}
             <span className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-brand" />
               {date}

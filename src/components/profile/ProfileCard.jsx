@@ -1,5 +1,4 @@
-import React from 'react'
-import { User, Mail, Shield } from 'lucide-react'
+import { Calendar, Mail, Shield, User } from 'lucide-react'
 
 /**
  * ProfileCard component aligned with AnimeLoom's premium layout rules
@@ -9,6 +8,7 @@ import { User, Mail, Shield } from 'lucide-react'
  * @param {string} props.user.email
  * @param {string} [props.user.avatar_url]
  * @param {string} [props.user.role='Otaku Elite']
+ * @param {string} [props.user.joined_at]
  * @param {React.ReactNode} [props.stats] - Quick statistics metrics
  */
 export default function ProfileCard({
@@ -16,7 +16,7 @@ export default function ProfileCard({
   stats,
   className = ''
 }) {
-  const { name, email, avatar_url, role = 'Otaku Member' } = user
+  const { name, email, avatar_url, joined_at, role = 'Otaku Member' } = user
 
   return (
     <div className={`bg-surface-card border border-white/5 rounded-2xl overflow-hidden shadow-xl ${className}`}>
@@ -51,6 +51,12 @@ export default function ProfileCard({
             <Mail className="h-4 w-4 text-gray-500" />
             <span>{email}</span>
           </div>
+          {joined_at && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-400 font-ui">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <span>Joined {joined_at}</span>
+            </div>
+          )}
         </div>
       </div>
 

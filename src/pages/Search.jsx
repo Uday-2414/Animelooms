@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import SectionHeader from '../components/ui/SectionHeader'
 import SearchBar from '../components/ui/SearchBar'
@@ -8,87 +8,114 @@ import AnimeCard from '../components/anime/AnimeCard'
 import { animeService } from '../services/animeService'
 import { Search as SearchIcon } from 'lucide-react'
 
+const SEARCH_DEBOUNCE_MS = 500
+
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
+  const [searchState, setSearchState] = useState({
+    status: 'idle',
+    query: '',
+    results: [],
+  })
+  const latestSearchId = useRef(0)
+
+  const normalizedQuery = query.trim()
 
   useEffect(() => {
-    const searchQuery = searchParams.get('q') || ''
-    setQuery(searchQuery)
+    latestSearchId.current += 1
+    const searchId = latestSearchId.current
 
-    if (!searchQuery.trim()) {
-      setResults([])
-      setError(null)
-      setHasSearched(false)
-      return
+    if (!normalizedQuery) {
+      return undefined
     }
 
-    async function fetchResults() {
-      setLoading(true)
-      setError(null)
-      setHasSearched(true)
+    const debounceId = setTimeout(async () => {
+      setSearchState((current) => ({
+        ...current,
+        status: 'loading',
+        query: normalizedQuery,
+      }))
 
       try {
-        const data = await animeService.searchAnime(searchQuery)
-        setResults(data)
-      } catch (err) {
-        setError(err.message || 'Search failed. Please try again.')
-        setResults([])
-      } finally {
-        setLoading(false)
-      }
-    }
+        const results = await animeService.searchAnime(normalizedQuery)
 
-    fetchResults()
-  }, [searchParams])
+        if (latestSearchId.current !== searchId) return
+
+        setSearchState({
+          status: 'success',
+          query: normalizedQuery,
+          results,
+        })
+      } catch (err) {
+        console.error('Anime search failed:', err)
+
+        if (latestSearchId.current !== searchId) return
+
+        setSearchState({
+          status: 'error',
+          query: normalizedQuery,
+          results: [],
+        })
+      }
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(debounceId)
+    }
+  }, [normalizedQuery])
 
   const handleSearchSubmit = (value) => {
     const nextQuery = value.trim()
+    setQuery(nextQuery)
     setSearchParams(nextQuery ? { q: nextQuery } : {})
   }
 
+  const handleQueryChange = (event) => {
+    setQuery(event.target.value)
+  }
+
   const renderContent = () => {
-    if (loading) {
+    if (!normalizedQuery) {
+      return (
+        <EmptyState
+          icon={<SearchIcon className="h-10 w-10 text-gray-500" />}
+          title="Start searching for your favorite anime."
+          description="Search anime titles to discover your next watch."
+        />
+      )
+    }
+
+    if (
+      searchState.status === 'loading' ||
+      searchState.query !== normalizedQuery
+    ) {
       return <LoadingState message="Searching anime titles..." />
     }
 
-    if (error) {
+    if (searchState.status === 'error') {
       return (
         <EmptyState
           icon={<SearchIcon className="h-10 w-10 text-red-400" />}
-          title="Search Error"
-          description={error}
+          title="Search unavailable"
+          description="We couldn't complete your search. Please try again."
         />
       )
     }
 
-    if (!hasSearched) {
+    if (searchState.results.length === 0) {
       return (
         <EmptyState
           icon={<SearchIcon className="h-10 w-10 text-gray-500" />}
-          title="Begin Your Query"
-          description="Type keywords above to search anime by title, studio, characters, and genres."
-        />
-      )
-    }
-
-    if (results.length === 0) {
-      return (
-        <EmptyState
-          icon={<SearchIcon className="h-10 w-10 text-gray-500" />}
-          title="No Results Found"
-          description={`We couldn't find any anime matching "${query}". Try another keyword.`}
+          title="No anime found. Try another search."
+          description="Try a different title or keyword."
         />
       )
     }
 
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-        {results.map((anime) => (
+        {searchState.results.map((anime) => (
           <AnimeCard key={anime.mal_id} anime={anime} />
         ))}
       </div>
@@ -97,15 +124,15 @@ export default function Search() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <SectionHeader 
-        title="Search Catalog" 
-        subtitle="Lookup databases by title, studios, genres, and characters" 
+      <SectionHeader
+        title="Search Catalog"
+        subtitle="Lookup databases by title, studios, genres, and characters"
       />
 
       <div className="max-w-2xl mx-auto w-full">
         <SearchBar
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleQueryChange}
           onSearch={handleSearchSubmit}
           placeholder="Search for anime, characters, studios..."
         />
