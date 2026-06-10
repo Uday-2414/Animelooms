@@ -20,6 +20,7 @@ export default function AnimeDetails() {
   const [watchlistLoading, setWatchlistLoading] = useState(false)
   const [watchlistMessage, setWatchlistMessage] = useState(null)
   const [error, setError] = useState(null)
+  const [errorType, setErrorType] = useState(null)
 
   useEffect(() => {
     let isMounted = true
@@ -57,13 +58,15 @@ export default function AnimeDetails() {
     async function loadAnimeDetails() {
       setLoading(true)
       setError(null)
+      setErrorType(null)
 
       try {
         const apiAnime = await animeService.getAnimeDetails(id)
         const details = apiAnime || getAnimeById(id)
 
         if (!details) {
-          throw new Error('Title details not found.')
+          setErrorType('not_found')
+          throw new Error('This anime does not exist in our database.')
         }
 
         const relatedData = apiAnime
@@ -73,14 +76,48 @@ export default function AnimeDetails() {
         if (isMounted) {
           setAnime(details)
           setRelated(relatedData)
+          setError(null)
+          setErrorType(null)
         }
       } catch (err) {
         const fallbackAnime = getAnimeById(id)
-
+        const errorMessage = err.message || 'Unable to load anime details.'
+        
+        // Distinguish between API failure and not found
+        const isAPIFailure = 
+          errorMessage.includes('temporarily') ||
+          errorMessage.includes('experiencing') ||
+          errorMessage.includes('Unable to load') ||
+          errorMessage.includes('busy') ||
+          err.cause !== undefined
+        
         if (isMounted) {
-          setAnime(fallbackAnime)
-          setRelated(fallbackAnime ? getMockRelatedAnime(fallbackAnime) : [])
-          setError(err.message || 'Unable to load anime details.')
+          console.error('[AnimeDetails] Error loading anime:', {
+            animeId: id,
+            errorMessage,
+            isAPIFailure,
+            originalError: err
+          })
+
+          if (isAPIFailure && !fallbackAnime) {
+            // API failed, no fallback data
+            setErrorType('api_failure')
+            setError('Anime data is temporarily unavailable. Our data provider is currently experiencing issues. Please try again in a few minutes.')
+            setAnime(null)
+            setRelated([])
+          } else if (isAPIFailure && fallbackAnime) {
+            // API failed but we have fallback data, show with warning
+            setErrorType('api_failure_with_fallback')
+            setError('Using cached data. Live data is temporarily unavailable.')
+            setAnime(fallbackAnime)
+            setRelated(getMockRelatedAnime(fallbackAnime))
+          } else {
+            // Anime not found
+            setErrorType('not_found')
+            setError(null)
+            setAnime(null)
+            setRelated([])
+          }
         }
       } finally {
         if (isMounted) {
@@ -100,12 +137,76 @@ export default function AnimeDetails() {
     return <LoadingState message="Loading anime details..." />
   }
 
-  if (!anime) {
+  // API Failure - No data available
+  if (errorType === 'api_failure' && !anime) {
     return (
-      <div className="py-20 text-center text-gray-400 font-ui">
-        Title details not found.
+      <div className="py-12 space-y-6">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors duration-300 font-ui font-semibold"
+        >
+          <ArrowLeft className="h-4 w-4 text-brand" />
+          Back to Dashboard
+        </Link>
+
+        <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-6 text-center max-w-md mx-auto">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-orange-300 font-ui mb-2">
+                Anime data is temporarily unavailable
+              </h2>
+              <p className="text-sm text-orange-200 font-ui">
+                Our data provider is currently experiencing issues. Please try again in a few minutes.
+              </p>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-lg transition-colors duration-300"
+            >
+              ↻ Retry Loading
+            </button>
+          </div>
+        </div>
       </div>
     )
+  }
+
+  // Anime not found
+  if (errorType === 'not_found' || (!anime && !loading)) {
+    return (
+      <div className="py-12 space-y-6">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors duration-300 font-ui font-semibold"
+        >
+          <ArrowLeft className="h-4 w-4 text-brand" />
+          Back to Dashboard
+        </Link>
+
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-center max-w-md mx-auto">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-red-300 font-ui mb-2">
+                Anime not found
+              </h2>
+              <p className="text-sm text-red-200 font-ui">
+                This anime does not exist in our database. Try searching for another title.
+              </p>
+            </div>
+            <Link
+              to="/search"
+              className="inline-flex items-center justify-center px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors duration-300"
+            >
+              ← Back to Search
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!anime) {
+    return null
   }
 
   const {
@@ -203,7 +304,7 @@ export default function AnimeDetails() {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-200">
+        <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm text-orange-200 font-ui">
           {error}
         </div>
       )}
