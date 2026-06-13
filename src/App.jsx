@@ -1,4 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+import { trackPageView } from './services/analytics'
 
 // Shell Layout
 import AppLayout from './layout/AppLayout'
@@ -19,10 +22,21 @@ import NotFound from './pages/NotFound'
 // Styling
 import './App.css'
 
+function AnalyticsTracker() {
+  const location = useLocation()
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search)
+  }, [location])
+
+  return null
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <AnalyticsTracker />
         <Routes>
           <Route path="/login" element={<Login />} />
 
