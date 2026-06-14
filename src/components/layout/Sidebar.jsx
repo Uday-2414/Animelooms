@@ -1,12 +1,12 @@
 import { useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Search, Bookmark, Trophy, FileText, User, LogOut } from 'lucide-react'
+import { Home, Search, Bookmark, Trophy, FileText, User, LogOut, LogIn } from 'lucide-react'
 import AuthContext from '../../context/AuthContext'
 import LogoName from '../../assets/Logo-name.png'
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const { signOut } = useContext(AuthContext)
+  const { signOut, user } = useContext(AuthContext)
 
   const navItems = [
     { name: 'Home', path: '/', icon: <Home className="h-5 w-5" /> },
@@ -74,15 +74,25 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Logout Bottom Trigger */}
+      {/* Auth Bottom Trigger */}
       <div className="px-8">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-4 py-3.5 px-4 rounded-xl text-sm font-ui font-semibold text-gray-400 hover:text-white hover:bg-brand/10 hover:text-brand-light transition-all duration-300 cursor-pointer"
-        >
-          <LogOut className="h-5 w-5 text-gray-500" />
-          <span>Logout</span>
-        </button>
+        {user ? (
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-4 py-3.5 px-4 rounded-xl text-sm font-ui font-semibold text-gray-400 hover:text-white hover:bg-brand/10 hover:text-brand-light transition-all duration-300 cursor-pointer"
+          >
+            <LogOut className="h-5 w-5 text-gray-500" />
+            <span>Logout</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full flex items-center gap-4 py-3.5 px-4 rounded-xl text-sm font-ui font-semibold text-gray-400 hover:text-white hover:bg-brand/10 hover:text-brand-light transition-all duration-300 cursor-pointer"
+          >
+            <LogIn className="h-5 w-5 text-gray-500" />
+            <span>Login</span>
+          </button>
+        )}
       </div>
     </aside>
   )

@@ -3,14 +3,17 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
-import { initAnalytics } from './services/analytics'
+import { initAnalytics } from './services/analyticsService'
+import SEOProvider from './components/seo/SEOProvider.jsx'
 
 initAnalytics()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
-      <App />
+      <SEOProvider>
+        <App />
+      </SEOProvider>
     </AuthProvider>
   </StrictMode>,
 )

@@ -1,4 +1,3 @@
-import React from 'react'
 
 /**
  * Reusable premium button component matching AnimeLoom design system
@@ -17,7 +16,7 @@ export default function Button({
   className = '',
   ...props
 }) {
-  const baseStyles = 'inline-flex items-center justify-center font-ui font-semibold rounded-md transition-all duration-300 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none'
+  const baseStyles = 'inline-flex items-center justify-center font-ui font-semibold rounded-md transition-all duration-300 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background-base'
   
   const variants = {
     primary: 'bg-brand text-white hover:bg-brand/90 hover:shadow-[0_0_15px_rgba(192,57,43,0.3)] border-none',

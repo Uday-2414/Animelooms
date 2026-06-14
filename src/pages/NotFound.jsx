@@ -1,11 +1,20 @@
 import { useNavigate } from 'react-router-dom'
+import SEO from '../components/seo/SEO'
 
 export default function NotFound() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center">
+    <>
+      <SEO
+        title="Page Not Found"
+        description="The page you are looking for does not exist. Return to AnimeLoom's home page or search for anime."
+        pathname="/404"
+        shouldIndex={false}
+        noFollow={true}
+      />
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
         {/* 404 Title */}
         <div className="mb-6">
           <h1 className="text-9xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 bg-clip-text text-transparent mb-2">
@@ -60,5 +69,6 @@ export default function NotFound() {
         </div>
       </div>
     </div>
+    </>
   )
 }

@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { Trophy } from 'lucide-react'
 import SectionHeader from '../components/ui/SectionHeader'
 import AnimeCard from '../components/anime/AnimeCard'
-import LoadingState from '../components/ui/LoadingState'
 import EmptyState from '../components/ui/EmptyState'
+import Button from '../components/ui/Button'
+import SEO from '../components/seo/SEO'
 import { animeService } from '../services/animeService'
+import { AnimeCardSkeleton } from '../components/ui/Skeleton'
 
 const RANKING_SECTIONS = [
   {
@@ -32,20 +34,21 @@ export default function Rankings() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let isMounted = true
+    const controller = new AbortController()
 
     async function loadRankings() {
       setLoading(true)
       setError(false)
 
       try {
-        const [topAnime, topAiring, topMovies] = await Promise.all([
-          animeService.getTopAnime(),
-          animeService.getTopAiringAnime(),
-          animeService.getTopMovies(),
-        ])
+        // Fetch sequentially to prevent Jikan API rate limit (3 requests/second) issues
+        const topAnime = await animeService.getTopAnime({ signal: controller.signal })
+        const topAiring = await animeService.getTopAiringAnime({ signal: controller.signal })
+        const topMovies = await animeService.getTopMovies({ signal: controller.signal })
 
         if (!isMounted) return
 
@@ -55,6 +58,7 @@ export default function Rankings() {
           topMovies,
         })
       } catch (err) {
+        if (err.name === 'AbortError') return
         console.error('Unable to load rankings:', err)
 
         if (isMounted) {
@@ -76,26 +80,15 @@ export default function Rankings() {
 
     return () => {
       isMounted = false
+      controller.abort()
     }
-  }, [])
+  }, [refreshKey])
 
-  const hasRankings = RANKING_SECTIONS.some(
-    (section) => rankings[section.key].length > 0
-  )
-
-  if (loading) {
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <SectionHeader
-          title="Global Rankings"
-          subtitle="Top rated anime lists compiled by popularity, score, and favorites"
-        />
-        <LoadingState message="Loading anime rankings..." />
-      </div>
-    )
+  const handleRetry = () => {
+    setRefreshKey((prev) => prev + 1)
   }
 
-  if (error || !hasRankings) {
+  if (error) {
     return (
       <div className="space-y-6 animate-fade-in">
         <SectionHeader
@@ -104,9 +97,14 @@ export default function Rankings() {
         />
         <div className="pt-8">
           <EmptyState
-            icon={<Trophy className="h-10 w-10 text-gray-500" />}
-            title="No rankings available right now."
-            description="Please check back again soon."
+            icon={<Trophy className="h-10 w-10 text-brand" />}
+            title="Anime rankings are temporarily unavailable"
+            description="We encountered an issue loading the database rankings. Please try again."
+            action={
+              <Button variant="primary" onClick={handleRetry}>
+                Retry Loading
+              </Button>
+            }
           />
         </div>
       </div>
@@ -114,33 +112,57 @@ export default function Rankings() {
   }
 
   return (
-    <div className="space-y-12 animate-fade-in">
-      <SectionHeader
-        title="Global Rankings"
-        subtitle="Top rated anime lists compiled by popularity, score, and favorites"
+    <>
+      <SEO
+        title="Anime Rankings"
+        description="Explore AnimeLoom's global rankings for top anime, top airing titles, and the best anime movies."
+        pathname="/rankings"
       />
+      <div className="space-y-12 animate-fade-in">
+        <SectionHeader
+          title="Global Rankings"
+          subtitle="Top rated anime lists compiled by popularity, score, and favorites"
+        />
 
-      {RANKING_SECTIONS.map((section) => {
-        const animeList = rankings[section.key]
+        {loading ? (
+          RANKING_SECTIONS.map((section) => (
+            <section key={section.key} className="space-y-6">
+              <SectionHeader
+                title={section.title}
+                subtitle={section.subtitle}
+                useLogoFont={false}
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <AnimeCardSkeleton key={`${section.key}-skel-${idx}`} />
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          RANKING_SECTIONS.map((section) => {
+            const animeList = rankings[section.key] || []
 
-        if (animeList.length === 0) return null
+            if (animeList.length === 0) return null
 
-        return (
-          <section key={section.key} className="space-y-6">
-            <SectionHeader
-              title={section.title}
-              subtitle={section.subtitle}
-              useLogoFont={false}
-            />
+            return (
+              <section key={section.key} className="space-y-6 animate-fade-in">
+                <SectionHeader
+                  title={section.title}
+                  subtitle={section.subtitle}
+                  useLogoFont={false}
+                />
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {animeList.map((anime) => (
-                <AnimeCard key={anime.mal_id} anime={anime} />
-              ))}
-            </div>
-          </section>
-        )
-      })}
-    </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {animeList.map((anime) => (
+                    <AnimeCard key={anime.mal_id} anime={anime} />
+                  ))}
+                </div>
+              </section>
+            )
+          })
+        )}
+      </div>
+    </>
   )
 }

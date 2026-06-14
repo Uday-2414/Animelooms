@@ -1,4 +1,3 @@
-import React from 'react'
 import { Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import GenreBadge from './GenreBadge'
@@ -23,7 +22,8 @@ export default function AnimeCard({
   return (
     <Link
       to={`/anime/${mal_id}`}
-      className={`group relative flex flex-col bg-surface-card rounded-2xl overflow-hidden border border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) hover:-translate-y-2 hover:border-brand/20 hover:shadow-glow w-full aspect-[2/3] ${className}`}
+      aria-label={`View details for ${title}`}
+      className={`group relative flex flex-col bg-surface-card rounded-2xl overflow-hidden border border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) hover:-translate-y-2 hover:border-brand/20 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background-base w-full aspect-[2/3] ${className}`}
     >
       {/* Poster Image */}
       <img

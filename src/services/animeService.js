@@ -1,3 +1,5 @@
+import { trackApiPerformance } from './analyticsService.js'
+
 // Centralized Service Layer for Jikan API v4 (MyAnimeList)
 const BASE_URL = 'https://api.jikan.moe/v4'
 
@@ -74,65 +76,105 @@ function mapJikanAnime(raw) {
 
 export const animeService = {
   /**
-   * Helper fetcher with cache, request deduplication, and retry handling.
+   * Helper fetcher with cache, request deduplication, timeout, cancellation and retry handling.
    */
-  async _fetch(cacheKey, endpoint) {
+  async _fetch(cacheKey, endpoint, options = {}) {
+    const { signal, timeout = 10000 } = options
+
     const cachedData = getFromCache(cacheKey)
     if (cachedData) return cachedData
 
-    if (pendingRequests.has(cacheKey)) {
-      return pendingRequests.get(cacheKey)
+    // Offline check: throw early to avoid long timeout if cache is empty (only in browser)
+    const isBrowser = typeof window !== 'undefined'
+    if (isBrowser && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new Error('Anime data is temporarily unavailable. (Offline)')
     }
 
-    const request = (async () => {
-      let lastStatus = null
+    let sharedRequest = pendingRequests.get(cacheKey)
+    if (!sharedRequest) {
+      sharedRequest = (async () => {
+        let lastStatus = null
 
-      for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
-        try {
-          const response = await fetch(`${BASE_URL}${endpoint}`)
-          lastStatus = response.status
+        for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-          if (response.ok) {
-            const json = await response.json()
-            setToCache(cacheKey, json)
-            return json
-          }
+          try {
+            const startTime = Date.now()
+            const response = await fetch(`${BASE_URL}${endpoint}`, {
+              signal: controller.signal
+            })
+            const duration = Date.now() - startTime
+            lastStatus = response.status
 
-          const shouldRetry =
-            response.status === 429 || response.status >= 500
+            trackApiPerformance('Jikan API', endpoint, duration, response.ok ? 'success' : 'failure')
 
-          if (!shouldRetry) {
+            if (response.ok) {
+              const json = await response.json()
+              setToCache(cacheKey, json)
+              return json
+            }
+
+            const shouldRetry =
+              response.status === 429 || response.status >= 500
+
+            if (!shouldRetry) {
+              throw new Error(getFriendlyError(response.status))
+            }
+
+            if (attempt < RETRY_DELAYS.length) {
+              await wait(RETRY_DELAYS[attempt])
+              continue
+            }
+
             throw new Error(getFriendlyError(response.status))
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              throw new Error('Anime data is temporarily unavailable. (Timeout)', { cause: error })
+            }
+
+            const isFriendlyError =
+              error.message === getFriendlyError(lastStatus) ||
+              error.message.includes('temporarily unavailable')
+
+            if (isFriendlyError) {
+              throw error
+            }
+
+            if (attempt < RETRY_DELAYS.length) {
+              await wait(RETRY_DELAYS[attempt])
+              continue
+            }
+
+            throw new Error('Anime data is temporarily unavailable.', { cause: error })
+          } finally {
+            clearTimeout(timeoutId)
           }
-
-          if (attempt < RETRY_DELAYS.length) {
-            await wait(RETRY_DELAYS[attempt])
-            continue
-          }
-
-          throw new Error(getFriendlyError(response.status))
-        } catch (error) {
-          const isFriendlyError =
-            error.message === getFriendlyError(lastStatus)
-
-          if (isFriendlyError) {
-            throw error
-          }
-
-          if (attempt < RETRY_DELAYS.length) {
-            await wait(RETRY_DELAYS[attempt])
-            continue
-          }
-
-          throw new Error(getFriendlyError(lastStatus), { cause: error })
         }
-      }
-    })()
+      })()
 
-    pendingRequests.set(cacheKey, request)
+      pendingRequests.set(cacheKey, sharedRequest)
+    }
 
     try {
-      return await request
+      if (signal) {
+        if (signal.aborted) {
+          throw new DOMException('The user aborted a request.', 'AbortError')
+        }
+        return await new Promise((resolve, reject) => {
+          const onAbort = () => {
+            reject(new DOMException('The user aborted a request.', 'AbortError'))
+          }
+          signal.addEventListener('abort', onAbort)
+          sharedRequest
+            .then(resolve)
+            .catch(reject)
+            .finally(() => {
+              signal.removeEventListener('abort', onAbort)
+            })
+        })
+      }
+      return await sharedRequest
     } finally {
       pendingRequests.delete(cacheKey)
     }
@@ -141,10 +183,11 @@ export const animeService = {
   /**
    * Fetches trending/popular anime
    */
-  async getTrendingAnime() {
+  async getTrendingAnime(options) {
     const res = await this._fetch(
       'trendingAnime',
-      '/top/anime?filter=bypopularity&limit=5'
+      '/top/anime?filter=bypopularity&limit=5',
+      options
     )
     return (res.data || []).map(mapJikanAnime)
   },
@@ -152,18 +195,19 @@ export const animeService = {
   /**
    * Fetches top anime (by score/rank)
    */
-  async getTopAnime() {
-    const res = await this._fetch('topAnime', '/top/anime?limit=5')
+  async getTopAnime(options) {
+    const res = await this._fetch('topAnime', '/top/anime?limit=5', options)
     return (res.data || []).map(mapJikanAnime)
   },
 
   /**
    * Fetches top airing anime
    */
-  async getTopAiringAnime() {
+  async getTopAiringAnime(options) {
     const res = await this._fetch(
       'topAiringAnime',
-      '/top/anime?filter=airing&limit=5'
+      '/top/anime?filter=airing&limit=5',
+      options
     )
     return (res.data || []).map(mapJikanAnime)
   },
@@ -171,10 +215,11 @@ export const animeService = {
   /**
    * Fetches top anime movies.
    */
-  async getTopMovies() {
+  async getTopMovies(options) {
     const res = await this._fetch(
       'topMovies',
-      '/top/anime?type=movie&limit=5'
+      '/top/anime?type=movie&limit=5',
+      options
     )
     return (res.data || []).map(mapJikanAnime)
   },
@@ -182,10 +227,11 @@ export const animeService = {
   /**
    * Fetches popular anime this week
    */
-  async getPopularThisWeek() {
+  async getPopularThisWeek(options) {
     const res = await this._fetch(
       'popularThisWeek',
-      '/top/anime?filter=favorite&limit=5'
+      '/top/anime?filter=favorite&limit=5',
+      options
     )
     return (res.data || []).map(mapJikanAnime)
   },
@@ -193,18 +239,19 @@ export const animeService = {
   /**
    * Fetches full anime details by MAL ID
    */
-  async getAnimeDetails(id) {
-    const res = await this._fetch(`animeDetails:${id}`, `/anime/${id}/full`)
+  async getAnimeDetails(id, options) {
+    const res = await this._fetch(`animeDetails:${id}`, `/anime/${id}/full`, options)
     return mapJikanAnime(res.data)
   },
 
   /**
    * Fetches related anime/recommendations
    */
-  async getRelatedAnime(id) {
+  async getRelatedAnime(id, options) {
     const res = await this._fetch(
       `relatedAnime:${id}`,
-      `/anime/${id}/recommendations`
+      `/anime/${id}/recommendations`,
+      options
     )
     return (res.data || []).slice(0, 5).map(rec => ({
       mal_id: rec.entry.mal_id,
@@ -218,11 +265,12 @@ export const animeService = {
   /**
    * Searches for anime by query
    */
-  async searchAnime(query) {
+  async searchAnime(query, options) {
     const normalizedQuery = query.trim().toLowerCase()
     const res = await this._fetch(
       `search:${normalizedQuery}`,
-      `/anime?q=${encodeURIComponent(normalizedQuery)}&limit=24`
+      `/anime?q=${encodeURIComponent(normalizedQuery)}&limit=24`,
+      options
     )
     return (res.data || []).map(mapJikanAnime)
   }

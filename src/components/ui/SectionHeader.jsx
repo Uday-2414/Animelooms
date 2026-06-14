@@ -1,4 +1,3 @@
-import React from 'react'
 
 /**
  * SectionHeader component incorporating double typeface rules (Cinzel Decorative / Albert Sans)

@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { trackPageView } from './services/analytics'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/react'
+import { trackPageView } from './services/analyticsService'
 
 // Shell Layout
 import AppLayout from './layout/AppLayout'
@@ -17,7 +19,13 @@ import Profile from './pages/Profile'
 import Rankings from './pages/Rankings'
 import News from './pages/News'
 import Login from './pages/Login'
+import About from './pages/About'
+import Privacy from './pages/Privacy'
+import Terms from './pages/Terms'
+import Contact from './pages/Contact'
 import NotFound from './pages/NotFound'
+
+import ScrollToTop from './components/layout/ScrollToTop'
 
 // Styling
 import './App.css'
@@ -29,33 +37,47 @@ function AnalyticsTracker() {
     trackPageView(location.pathname + location.search)
   }, [location])
 
-  return null
+  return (
+    <>
+      <Analytics route={location.pathname} path={location.pathname + location.search} />
+      <SpeedInsights route={location.pathname} />
+    </>
+  )
 }
 
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <ScrollToTop />
         <AnalyticsTracker />
         <Routes>
           <Route path="/login" element={<Login />} />
 
           {/* Main Application Shell Layout */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Home />} />
-            <Route path="search" element={<Search />} />
-            <Route path="anime/:id" element={<AnimeDetails />} />
-            <Route path="watchlist" element={<Watchlist />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="rankings" element={<Rankings />} />
-            <Route path="news" element={<News />} />
+          <Route element={<AppLayout />}>
+            {/* Public Pages */}
+            <Route path="about" element={<About />} />
+            <Route path="privacy" element={<Privacy />} />
+            <Route path="terms" element={<Terms />} />
+            <Route path="contact" element={<Contact />} />
+
+            {/* Protected Pages */}
+            <Route
+              element={
+                <ProtectedRoute>
+                  <Outlet />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Home />} />
+              <Route path="search" element={<Search />} />
+              <Route path="anime/:id" element={<AnimeDetails />} />
+              <Route path="watchlist" element={<Watchlist />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="rankings" element={<Rankings />} />
+              <Route path="news" element={<News />} />
+            </Route>
           </Route>
 
           {/* Catch-all route for 404 */}

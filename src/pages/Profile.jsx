@@ -6,6 +6,7 @@ import StatsCard from '../components/ui/StatsCard'
 import AnimeCard from '../components/anime/AnimeCard'
 import LoadingState from '../components/ui/LoadingState'
 import EmptyState from '../components/ui/EmptyState'
+import SEO from '../components/seo/SEO'
 import AuthContext from '../context/AuthContext'
 import { supabase } from '../services/supabaseClient'
 
@@ -146,11 +147,19 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-10 animate-fade-in">
-      <SectionHeader
+    <>
+      <SEO
         title="My Profile"
-        subtitle="Manage user configurations and review status analytics"
+        description="View your AnimeLoom profile and recent watchlist activity. Manage your account and anime collection in one place."
+        pathname="/profile"
+        shouldIndex={false}
+        noFollow={true}
       />
+      <div className="space-y-10 animate-fade-in">
+        <SectionHeader
+          title="My Profile"
+          subtitle="Manage user configurations and review status analytics"
+        />
 
       <div className="max-w-5xl mx-auto w-full">
         <ProfileCard user={profileUser} stats={profileStats} />
@@ -165,8 +174,8 @@ export default function Profile() {
       ) : watchlist.length === 0 ? (
         <EmptyState
           icon={<Bookmark className="h-10 w-10 text-gray-500" />}
-          title="Your anime journey starts here."
-          description="Search and save anime to build your collection."
+          title="No activity yet"
+          description="Your anime journey starts here."
         />
       ) : (
         <section className="space-y-6">
@@ -184,5 +193,6 @@ export default function Profile() {
         </section>
       )}
     </div>
+    </>
   )
 }

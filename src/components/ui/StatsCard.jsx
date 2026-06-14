@@ -1,4 +1,3 @@
-import React from 'react'
 
 /**
  * StatsCard component designed for analytics or user profile summaries

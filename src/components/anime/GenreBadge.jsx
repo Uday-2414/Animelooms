@@ -1,4 +1,3 @@
-import React from 'react'
 
 /**
  * GenreBadge component for categorical tags in AnimeLoom

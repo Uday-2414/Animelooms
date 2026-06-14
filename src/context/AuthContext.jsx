@@ -1,10 +1,11 @@
 import { createContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
+import { trackLogin, trackLogout } from '../services/analyticsService'
 
 const AuthContext = createContext({
   user: null,
   loading: true,
-  signOut: async () => {},
+  signOut: async () => { },
 })
 
 export function AuthProvider({ children }) {
@@ -29,9 +30,13 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      if (event === 'SIGNED_IN') {
+        trackLogin(session?.provider || 'google')
+      }
     })
 
     return () => {
@@ -49,6 +54,8 @@ export function AuthProvider({ children }) {
       setLoading(false)
       throw error
     }
+
+    trackLogout('google')
   }
 
   const value = useMemo(

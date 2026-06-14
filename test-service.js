@@ -102,8 +102,8 @@ async function runTests() {
   console.log('')
 
   // Test 4: searchAnime(query)
+  let query = 'Frieren'
   try {
-    const query = 'Frieren'
     console.log(`${colors.yellow}Testing searchAnime("${query}")...${colors.reset}`)
     const searchResults = await animeService.searchAnime(query)
     

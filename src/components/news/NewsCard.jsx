@@ -1,4 +1,3 @@
-import React from 'react'
 import { Calendar, ExternalLink } from 'lucide-react'
 
 /**
@@ -25,7 +24,8 @@ export default function NewsCard({
         <div className="w-full md:w-48 h-48 md:h-auto relative overflow-hidden flex-shrink-0">
           <img
             src={image_url}
-            alt={title}
+            alt=""
+            aria-hidden="true"
             className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
             loading="lazy"
           />
@@ -72,7 +72,8 @@ export default function NewsCard({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brand hover:text-brand/80 transition-colors duration-300 self-start"
+            aria-label={`Read full article: ${title}`}
+            className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-brand hover:text-brand/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background-base rounded transition-colors duration-300 self-start"
           >
             Read Article
             <ExternalLink className="h-3.5 w-3.5" />

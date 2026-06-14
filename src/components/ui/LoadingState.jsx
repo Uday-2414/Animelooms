@@ -1,4 +1,3 @@
-import React from 'react'
 
 /**
  * LoadingState component with a sleek, themed spinner

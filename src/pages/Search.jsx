@@ -3,9 +3,12 @@ import { useSearchParams } from 'react-router-dom'
 import SectionHeader from '../components/ui/SectionHeader'
 import SearchBar from '../components/ui/SearchBar'
 import EmptyState from '../components/ui/EmptyState'
-import LoadingState from '../components/ui/LoadingState'
+import Button from '../components/ui/Button'
 import AnimeCard from '../components/anime/AnimeCard'
+import SEO from '../components/seo/SEO'
 import { animeService } from '../services/animeService'
+import { trackSearch } from '../services/analyticsService'
+import { AnimeCardSkeleton } from '../components/ui/Skeleton'
 import { Search as SearchIcon } from 'lucide-react'
 
 const SEARCH_DEBOUNCE_MS = 500
@@ -18,6 +21,7 @@ export default function Search() {
     query: '',
     results: [],
   })
+  const [refreshKey, setRefreshKey] = useState(0)
   const latestSearchId = useRef(0)
 
   const normalizedQuery = query.trim()
@@ -27,8 +31,17 @@ export default function Search() {
     const searchId = latestSearchId.current
 
     if (!normalizedQuery) {
-      return undefined
+      const timer = setTimeout(() => {
+        setSearchState({
+          status: 'idle',
+          query: '',
+          results: [],
+        })
+      }, 0)
+      return () => clearTimeout(timer)
     }
+
+    const controller = new AbortController()
 
     const debounceId = setTimeout(async () => {
       setSearchState((current) => ({
@@ -38,9 +51,11 @@ export default function Search() {
       }))
 
       try {
-        const results = await animeService.searchAnime(normalizedQuery)
+        const results = await animeService.searchAnime(normalizedQuery, { signal: controller.signal })
 
         if (latestSearchId.current !== searchId) return
+
+        trackSearch(normalizedQuery)
 
         setSearchState({
           status: 'success',
@@ -48,6 +63,7 @@ export default function Search() {
           results,
         })
       } catch (err) {
+        if (err.name === 'AbortError') return
         console.error('Anime search failed:', err)
 
         if (latestSearchId.current !== searchId) return
@@ -62,8 +78,9 @@ export default function Search() {
 
     return () => {
       clearTimeout(debounceId)
+      controller.abort()
     }
-  }, [normalizedQuery])
+  }, [normalizedQuery, refreshKey])
 
   const handleSearchSubmit = (value) => {
     const nextQuery = value.trim()
@@ -73,6 +90,10 @@ export default function Search() {
 
   const handleQueryChange = (event) => {
     setQuery(event.target.value)
+  }
+
+  const handleRetry = () => {
+    setRefreshKey((prev) => prev + 1)
   }
 
   const renderContent = () => {
@@ -90,15 +111,26 @@ export default function Search() {
       searchState.status === 'loading' ||
       searchState.query !== normalizedQuery
     ) {
-      return <LoadingState message="Searching anime titles..." />
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {Array.from({ length: 10 }).map((_, idx) => (
+            <AnimeCardSkeleton key={`search-skel-${idx}`} />
+          ))}
+        </div>
+      )
     }
 
     if (searchState.status === 'error') {
       return (
         <EmptyState
-          icon={<SearchIcon className="h-10 w-10 text-red-400" />}
-          title="Search unavailable"
+          icon={<SearchIcon className="h-10 w-10 text-brand" />}
+          title="Anime data is temporarily unavailable"
           description="We couldn't complete your search. Please try again."
+          action={
+            <Button variant="primary" onClick={handleRetry}>
+              Retry Search
+            </Button>
+          }
         />
       )
     }
@@ -107,14 +139,14 @@ export default function Search() {
       return (
         <EmptyState
           icon={<SearchIcon className="h-10 w-10 text-gray-500" />}
-          title="No anime found. Try another search."
-          description="Try a different title or keyword."
+          title="No results found"
+          description="Try searching with another title."
         />
       )
     }
 
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
         {searchState.results.map((anime) => (
           <AnimeCard key={anime.mal_id} anime={anime} />
         ))}
@@ -123,24 +155,31 @@ export default function Search() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <SectionHeader
-        title="Search Catalog"
-        subtitle="Lookup databases by title, studios, genres, and characters"
+    <>
+      <SEO
+        title={normalizedQuery ? `Search results for ${normalizedQuery}` : 'Search Anime'}
+        description="Search the AnimeLoom catalog for titles, studios, and characters. Find anime by keyword and explore detailed results."
+        pathname="/search"
       />
-
-      <div className="max-w-2xl mx-auto w-full">
-        <SearchBar
-          value={query}
-          onChange={handleQueryChange}
-          onSearch={handleSearchSubmit}
-          placeholder="Search for anime, characters, studios..."
+      <div className="space-y-6 animate-fade-in">
+        <SectionHeader
+          title="Search Catalog"
+          subtitle="Lookup databases by title, studios, genres, and characters"
         />
-      </div>
 
-      <div className="pt-8">
-        {renderContent()}
+        <div className="max-w-2xl mx-auto w-full">
+          <SearchBar
+            value={query}
+            onChange={handleQueryChange}
+            onSearch={handleSearchSubmit}
+            placeholder="Search for anime, characters, studios..."
+          />
+        </div>
+
+        <div className="pt-8">
+          {renderContent()}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -1,3 +1,5 @@
+import { trackApiPerformance } from './analyticsService'
+
 // Centralized service layer for AnimeLoom news retrieval and caching
 const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 const RETRY_DELAYS = [1000, 2000]
@@ -118,17 +120,40 @@ function parseRssItem(item, fallbackSource) {
   }
 }
 
-async function fetchWithTimeout(url, timeoutMs = 10000, retryIndex = 0) {
+async function fetchWithTimeout(url, timeoutMs = 10000, retryIndex = 0, options = {}) {
+  const { signal } = options
+  const startTime = Date.now()
+
+  const isBrowser = typeof window !== 'undefined'
+  if (isBrowser && typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('News data is temporarily unavailable. (Offline)')
+  }
+
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
+    // Combine external signal and timeout signal
+    let combinedSignal = controller.signal
+    const onAbort = () => {
+      controller.abort()
+    }
+
+    if (signal) {
+      if (signal.aborted) {
+        clearTimeout(timeoutId)
+        throw new DOMException('The user aborted a request.', 'AbortError')
+      }
+      signal.addEventListener('abort', onAbort)
+    }
+
     try {
       const response = await fetch(url, {
-        signal: controller.signal,
+        signal: combinedSignal,
       })
 
-      clearTimeout(timeoutId)
+      const duration = Date.now() - startTime
+      trackApiPerformance('News API', url, duration, response.ok ? 'success' : 'failure')
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
@@ -137,19 +162,31 @@ async function fetchWithTimeout(url, timeoutMs = 10000, retryIndex = 0) {
       return response
     } finally {
       clearTimeout(timeoutId)
+      if (signal) {
+        signal.removeEventListener('abort', onAbort)
+      }
     }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      if (signal?.aborted) {
+        throw error // User cancelled
+      }
+      throw new Error('News data is temporarily unavailable. (Timeout)', { cause: error })
+    }
+
+    const duration = Date.now() - startTime
+    trackApiPerformance('News API', url, duration, 'failure')
     if (retryIndex < RETRY_DELAYS.length) {
       await wait(RETRY_DELAYS[retryIndex])
-      return fetchWithTimeout(url, timeoutMs, retryIndex + 1)
+      return fetchWithTimeout(url, timeoutMs, retryIndex + 1, options)
     }
 
     throw error
   }
 }
 
-async function fetchRssFeed(feed) {
-  const response = await fetchWithTimeout(`${RSS_PROXY_BASE}${encodeURIComponent(feed.url)}`)
+async function fetchRssFeed(feed, options = {}) {
+  const response = await fetchWithTimeout(`${RSS_PROXY_BASE}${encodeURIComponent(feed.url)}`, 10000, 0, options)
   const text = await response.text()
   const document = new DOMParser().parseFromString(text, 'application/xml')
 
@@ -165,14 +202,17 @@ async function fetchRssFeed(feed) {
   return items.slice(0, 10).map((item) => parseRssItem(item, feed.source))
 }
 
-async function tryFetchRssNews() {
+async function tryFetchRssNews(options = {}) {
   for (const feed of RSS_FEEDS) {
     try {
-      const articles = await fetchRssFeed(feed)
+      const articles = await fetchRssFeed(feed, options)
       if (articles && articles.length > 0) {
         return articles
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw error // Propagate cancellation immediately
+      }
       if (isDevelopment) {
         console.warn(`[AnimeLoom News] RSS source failed (${feed.source}):`, error.message)
       }
@@ -248,51 +288,75 @@ function formatArticles(articles) {
   }))
 }
 
-async function fetchNewsWithRetry() {
+async function fetchNewsWithRetry(options = {}) {
+  const { signal } = options
   const cached = getFromCache(NEWS_CACHE_KEY)
   if (cached) return cached
 
-  if (pendingRequests.has(NEWS_CACHE_KEY)) {
-    return pendingRequests.get(NEWS_CACHE_KEY)
-  }
-
-  const request = (async () => {
-    try {
-      let articles = await tryFetchRssNews()
-
-      if (!articles || articles.length === 0) {
-        if (isDevelopment) {
-          console.info('[AnimeLoom News] Using mock data fallback')
-        }
-        articles = getMockNewsData()
-      }
-
-      const formatted = formatArticles(articles)
-      setToCache(NEWS_CACHE_KEY, formatted)
-      return formatted
-    } catch (error) {
-      if (isDevelopment) {
-        console.error('[AnimeLoom News] Error:', error)
-      }
-
+  let sharedRequest = pendingRequests.get(NEWS_CACHE_KEY)
+  if (!sharedRequest) {
+    sharedRequest = (async () => {
       try {
-        const mockArticles = getMockNewsData()
-        const formatted = formatArticles(mockArticles)
+        // Run tryFetchRssNews without passing the caller's signal to prevent premature abort
+        let articles = await tryFetchRssNews({})
+
+        if (!articles || articles.length === 0) {
+          if (isDevelopment) {
+            console.info('[AnimeLoom News] Using mock data fallback')
+          }
+          articles = getMockNewsData()
+        }
+
+        const formatted = formatArticles(articles)
         setToCache(NEWS_CACHE_KEY, formatted)
         return formatted
-      } catch (fallbackError) {
-        if (isDevelopment) {
-          console.error('[AnimeLoom News] Critical fallback error:', fallbackError)
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          throw error
         }
-        throw new Error('Unable to load news at this time. Please try again later.')
-      }
-    } finally {
-      pendingRequests.delete(NEWS_CACHE_KEY)
-    }
-  })()
+        if (isDevelopment) {
+          console.error('[AnimeLoom News] Error:', error)
+        }
 
-  pendingRequests.set(NEWS_CACHE_KEY, request)
-  return request
+        try {
+          const mockArticles = getMockNewsData()
+          const formatted = formatArticles(mockArticles)
+          setToCache(NEWS_CACHE_KEY, formatted)
+          return formatted
+        } catch (fallbackError) {
+          if (isDevelopment) {
+            console.error('[AnimeLoom News] Critical fallback error:', fallbackError)
+          }
+          throw new Error('News data is temporarily unavailable.', { cause: fallbackError })
+        }
+      }
+    })()
+
+    pendingRequests.set(NEWS_CACHE_KEY, sharedRequest)
+  }
+
+  try {
+    if (signal) {
+      if (signal.aborted) {
+        throw new DOMException('The user aborted a request.', 'AbortError')
+      }
+      return await new Promise((resolve, reject) => {
+        const onAbort = () => {
+          reject(new DOMException('The user aborted a request.', 'AbortError'))
+        }
+        signal.addEventListener('abort', onAbort)
+        sharedRequest
+          .then(resolve)
+          .catch(reject)
+          .finally(() => {
+            signal.removeEventListener('abort', onAbort)
+          })
+      })
+    }
+    return await sharedRequest
+  } finally {
+    pendingRequests.delete(NEWS_CACHE_KEY)
+  }
 }
 
 function clearNewsCache() {
