@@ -21,14 +21,24 @@
     <priority>0.85</priority>
   </url>
   <url>
-    <loc>https://animelooms.com/watchlist</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.75</priority>
+    <loc>https://animelooms.com/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
   </url>
   <url>
-    <loc>https://animelooms.com/profile</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.75</priority>
+    <loc>https://animelooms.com/contact</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://animelooms.com/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.30</priority>
+  </url>
+  <url>
+    <loc>https://animelooms.com/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.30</priority>
   </url>
   <url>
     <loc>https://animelooms.com/anime/52991</loc>

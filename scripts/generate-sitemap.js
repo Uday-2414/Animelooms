@@ -11,8 +11,10 @@ const staticPages = [
   { path: '/search', priority: '0.80', changefreq: 'weekly' },
   { path: '/rankings', priority: '0.90', changefreq: 'weekly' },
   { path: '/news', priority: '0.85', changefreq: 'daily' },
-  { path: '/watchlist', priority: '0.75', changefreq: 'weekly' },
-  { path: '/profile', priority: '0.75', changefreq: 'weekly' },
+  { path: '/about', priority: '0.50', changefreq: 'monthly' },
+  { path: '/contact', priority: '0.50', changefreq: 'monthly' },
+  { path: '/privacy', priority: '0.30', changefreq: 'monthly' },
+  { path: '/terms', priority: '0.30', changefreq: 'monthly' },
 ]
 
 const animeIds = [

@@ -26,16 +26,10 @@ export default function Sidebar() {
     <aside className="w-[280px] h-screen fixed top-0 left-0 bg-surface-chrome border-r border-white/5 flex flex-col justify-between py-8 z-30 select-none">
       <div className="space-y-8">
         {/* Brand Logo Wordmark */}
-        <div 
+        <div
           onClick={() => navigate('/')}
           className="px-8 flex items-center gap-3 cursor-pointer group"
         >
-          {/* <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white font-logo font-black text-xl shadow-[0_0_15px_rgba(192,57,43,0.4)] group-hover:scale-105 transition-all duration-300">
-            A
-          </div>
-          <span className="font-logo font-bold text-lg tracking-wider text-white group-hover:text-brand transition-colors duration-300">
-            AnimeLoom
-          </span> */}
           <img
             src={LogoName}
             alt="AnimeLoom Logo"

@@ -57,6 +57,11 @@ export default function App() {
           {/* Main Application Shell Layout */}
           <Route element={<AppLayout />}>
             {/* Public Pages */}
+            <Route index element={<Home />} />
+            <Route path="search" element={<Search />} />
+            <Route path="anime/:id" element={<AnimeDetails />} />
+            <Route path="rankings" element={<Rankings />} />
+            <Route path="news" element={<News />} />
             <Route path="about" element={<About />} />
             <Route path="privacy" element={<Privacy />} />
             <Route path="terms" element={<Terms />} />
@@ -70,13 +75,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Home />} />
-              <Route path="search" element={<Search />} />
-              <Route path="anime/:id" element={<AnimeDetails />} />
               <Route path="watchlist" element={<Watchlist />} />
               <Route path="profile" element={<Profile />} />
-              <Route path="rankings" element={<Rankings />} />
-              <Route path="news" element={<News />} />
             </Route>
           </Route>
 
