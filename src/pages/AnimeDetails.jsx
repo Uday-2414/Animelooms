@@ -3,14 +3,18 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import SectionHeader from '../components/ui/SectionHeader'
 import Button from '../components/ui/Button'
 import GenreBadge from '../components/anime/GenreBadge'
+import AnimeCard from '../components/anime/AnimeCard'
 import { getAnimeById, getRelatedAnime as getMockRelatedAnime } from '../services/mockData'
 import { animeService } from '../services/animeService'
 import { trackAnimeView, trackWatchlistAdd } from '../services/analyticsService'
 import AuthContext from '../context/AuthContext'
 import { supabase } from '../services/supabaseClient'
 import SEO from '../components/seo/SEO'
+import Breadcrumb from '../components/seo/Breadcrumb'
 import { AnimeDetailsSkeleton } from '../components/ui/Skeleton'
 import { ArrowLeft, Star, Calendar, Tv, Layers, BookmarkPlus, BookmarkCheck, Film } from 'lucide-react'
+
+const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://animelooms.com'
 
 export default function AnimeDetails() {
   const { id } = useParams()
@@ -18,6 +22,7 @@ export default function AnimeDetails() {
   const { user } = useContext(AuthContext)
   const [anime, setAnime] = useState(null)
   const [related, setRelated] = useState([])
+  const [topAnime, setTopAnime] = useState([])
   const [watchlistItem, setWatchlistItem] = useState(null)
   const [loading, setLoading] = useState(true)
   const [watchlistLoading, setWatchlistLoading] = useState(false)
@@ -55,6 +60,25 @@ export default function AnimeDetails() {
       isMounted = false
     }
   }, [id, user])
+
+  // Load top anime for internal linking (reuses cached data — no extra API call if already fetched)
+  useEffect(() => {
+    let isMounted = true
+    const controller = new AbortController()
+
+    animeService.getTopAnime({ signal: controller.signal })
+      .then((data) => {
+        if (isMounted) setTopAnime(data)
+      })
+      .catch(() => {
+        // Silently fail — this is a non-critical SEO enhancement
+      })
+
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [])
 
   useEffect(() => {
     let isMounted = true
@@ -251,8 +275,31 @@ export default function AnimeDetails() {
   } = anime
 
   const seoDescription = synopsis
-    ? `${title} — ${synopsis.slice(0, 120)}...`
-    : 'Learn more about this anime on AnimeLoom.'
+    ? synopsis.length > 155
+      ? `${synopsis.slice(0, 152)}...`
+      : synopsis
+    : `Discover ${title} on AnimeLoom — explore details, ratings, genres, and add it to your watchlist.`
+
+  const seoKeywords = `${title}, anime ranking, anime details, anime watchlist, anime discovery`
+
+  // Build anime structured data schema
+  const animeSchema = {
+    '@context': 'https://schema.org',
+    '@type': type === 'TV' ? 'TVSeries' : 'CreativeWork',
+    name: title,
+    ...(synopsis ? { description: synopsis } : {}),
+    ...(image_url ? { image: image_url } : {}),
+    ...(genres.length > 0 ? { genre: genres } : {}),
+    ...(score ? {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: score,
+        bestRating: 10,
+        worstRating: 1,
+      },
+    } : {}),
+    url: `${SITE_URL}/anime/${mal_id}`,
+  }
 
   const isWatchlisted = Number(watchlistItem?.anime_id) === Number(mal_id)
   const activeWatchlistMessage =
@@ -333,6 +380,8 @@ export default function AnimeDetails() {
         pathname={`/anime/${mal_id}`}
         image={image_url}
         type="article"
+        keywords={seoKeywords}
+        schemas={[animeSchema]}
       />
       <div className="space-y-8 pb-12 animate-fade-in">
         <div>
@@ -344,6 +393,14 @@ export default function AnimeDetails() {
             Back to Previous
           </button>
         </div>
+
+        <Breadcrumb
+          items={[
+            { label: 'Home', href: '/' },
+            { label: 'Anime', href: '/search' },
+            { label: title },
+          ]}
+        />
 
         {error && (
           <div className="rounded-2xl border border-brand/20 bg-brand/5 p-4 text-sm text-white font-ui" role="alert">
@@ -544,6 +601,25 @@ export default function AnimeDetails() {
             </div>
           </div>
         </div>
+
+        {/* Top Ranked Anime — Internal Linking for SEO */}
+        {topAnime.length > 0 && (
+          <section className="space-y-6 pt-8 border-t border-white/5">
+            <SectionHeader
+              title="Top Ranked Anime"
+              subtitle="Highest-rated anime across global databases"
+              useLogoFont={false}
+            />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {topAnime
+                .filter((a) => a.mal_id !== Number(mal_id))
+                .slice(0, 5)
+                .map((anime) => (
+                  <AnimeCard key={anime.mal_id} anime={anime} />
+                ))}
+            </div>
+          </section>
+        )}
       </div>
     </>
   )

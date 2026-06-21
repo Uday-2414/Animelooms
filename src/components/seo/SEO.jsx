@@ -13,6 +13,7 @@ export default function SEO({
   keywords = 'anime, anime tracker, watchlist, rankings, anime discovery',
   shouldIndex = true,
   noFollow = false,
+  schemas = [],
 }) {
   const pageTitle = title
     ? title.includes(SITE_NAME)
@@ -26,18 +27,6 @@ export default function SEO({
       ? 'index, nofollow'
       : 'index, follow'
     : 'noindex, nofollow'
-
-  const schemaData = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    url: SITE_URL,
-    name: SITE_NAME,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${SITE_URL}/search?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
-    },
-  }
 
   return (
     <Helmet>
@@ -59,9 +48,11 @@ export default function SEO({
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={image} />
 
-      <script type="application/ld+json">
-        {JSON.stringify(schemaData)}
-      </script>
+      {schemas.map((schema, i) => (
+        <script key={`schema-${i}`} type="application/ld+json">
+          {JSON.stringify(schema)}
+        </script>
+      ))}
     </Helmet>
   )
 }

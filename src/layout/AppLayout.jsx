@@ -1,9 +1,33 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import { useNetworkStatus } from '../hooks/useNetworkStatus'
 import { WifiOff, CheckCircle2 } from 'lucide-react'
+
+const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://animelooms.com'
+const SITE_NAME = 'AnimeLoom'
+
+const ORGANIZATION_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/web-app-manifest-512x512.png`,
+}
+
+const WEBSITE_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  url: SITE_URL,
+  name: SITE_NAME,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: `${SITE_URL}/search?q={search_term_string}`,
+    'query-input': 'required name=search_term_string',
+  },
+}
 
 /**
  * AppLayout layout shell wrapper matching AnimeLoom layout spec
@@ -39,6 +63,16 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background-base flex">
+      {/* Global Structured Data */}
+      <Helmet>
+        <script type="application/ld+json">
+          {JSON.stringify(ORGANIZATION_SCHEMA)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(WEBSITE_SCHEMA)}
+        </script>
+      </Helmet>
+
       {/* Fixed Navigation Sidebar */}
       <Sidebar />
 
