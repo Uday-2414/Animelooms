@@ -6,13 +6,23 @@ import GenreBadge from '../components/anime/GenreBadge'
 import AnimeCard from '../components/anime/AnimeCard'
 import { getAnimeById, getRelatedAnime as getMockRelatedAnime } from '../services/mockData'
 import { animeService } from '../services/animeService'
-import { trackAnimeView, trackWatchlistAdd } from '../services/analyticsService'
+import {
+  trackAnimeView,
+  trackProgressAdd,
+  trackProgressUpdate,
+  trackAnimeCompleted,
+  trackStatusChanged,
+  trackRecommendationClick
+} from '../services/analyticsService'
+import CommunityScore from '../components/reviews/CommunityScore'
+import ReviewSection from '../components/reviews/ReviewSection'
 import AuthContext from '../context/AuthContext'
-import { supabase } from '../services/supabaseClient'
+import { progressService } from '../services/progressService'
+import ProgressBar from '../components/ui/ProgressBar'
 import SEO from '../components/seo/SEO'
 import Breadcrumb from '../components/seo/Breadcrumb'
 import { AnimeDetailsSkeleton } from '../components/ui/Skeleton'
-import { ArrowLeft, Star, Calendar, Tv, Layers, BookmarkPlus, BookmarkCheck, Film } from 'lucide-react'
+import { ArrowLeft, Star, Calendar, Tv, Layers, BookmarkPlus, Film } from 'lucide-react'
 
 const SITE_URL = import.meta.env.VITE_SITE_URL || 'https://animelooms.com'
 
@@ -23,10 +33,15 @@ export default function AnimeDetails() {
   const [anime, setAnime] = useState(null)
   const [related, setRelated] = useState([])
   const [topAnime, setTopAnime] = useState([])
-  const [watchlistItem, setWatchlistItem] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [watchlistLoading, setWatchlistLoading] = useState(false)
-  const [watchlistMessage, setWatchlistMessage] = useState(null)
+  const [progress, setProgress] = useState(null)
+  const [progressLoading, setProgressLoading] = useState(true)
+  const [progressActionLoading, setProgressActionLoading] = useState(false)
+  const [progressMessage, setProgressMessage] = useState(null)
+  
+  const [localEpisodes, setLocalEpisodes] = useState(0)
+  const [localStatus, setLocalStatus] = useState('plan_to_watch')
+
   const [error, setError] = useState(null)
   const [errorType, setErrorType] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -34,32 +49,52 @@ export default function AnimeDetails() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadWatchlistStatus() {
-      if (!user || !id) return
-
-      const { data, error: watchlistError } = await supabase
-        .from('watchlist')
-        .select('id, anime_id, status')
-        .eq('user_id', user.id)
-        .eq('anime_id', Number(id))
-        .maybeSingle()
-
-      if (!isMounted) return
-
-      if (watchlistError) {
-        console.error('Unable to load watchlist status:', watchlistError.message)
+    async function loadProgressStatus() {
+      if (!user || !id) {
+        if (isMounted) {
+          setProgressLoading(false)
+          setProgress(null)
+          setLocalEpisodes(0)
+          setLocalStatus('plan_to_watch')
+        }
         return
       }
 
-      setWatchlistItem(data)
+      if (isMounted) {
+        setProgressLoading(true)
+      }
+      
+      try {
+        const data = await progressService.getProgressForAnime(user.id, id)
+        if (isMounted) {
+          setProgress(data)
+          if (data) {
+            setLocalEpisodes(data.episodes_watched)
+            setLocalStatus(data.status)
+          } else {
+            setLocalEpisodes(0)
+            setLocalStatus('plan_to_watch')
+          }
+        }
+      } catch (err) {
+        console.error('Unable to load progress status:', err)
+      } finally {
+        if (isMounted) {
+          setProgressLoading(false)
+        }
+      }
     }
 
-    loadWatchlistStatus()
+    loadProgressStatus()
 
     return () => {
       isMounted = false
     }
   }, [id, user])
+
+  const isDirty = progress
+    ? (progress.episodes_watched !== localEpisodes || progress.status !== localStatus)
+    : false
 
   // Load top anime for internal linking (reuses cached data — no extra API call if already fetched)
   useEffect(() => {
@@ -301,74 +336,155 @@ export default function AnimeDetails() {
     url: `${SITE_URL}/anime/${mal_id}`,
   }
 
-  const isWatchlisted = Number(watchlistItem?.anime_id) === Number(mal_id)
-  const activeWatchlistMessage =
-    Number(watchlistMessage?.animeId) === Number(mal_id) ? watchlistMessage : null
+  const activeProgressMessage = progressMessage
 
-  const handleAddToWatchlist = async () => {
-    if (!user || !anime) return
-
-    setWatchlistLoading(true)
-    setWatchlistMessage(null)
+  const handleAddToList = async (initialStatus = 'plan_to_watch') => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    setProgressActionLoading(true)
+    setProgressMessage(null)
 
     try {
-      const { data: existingItem, error: existingError } = await supabase
-        .from('watchlist')
-        .select('id, anime_id, status')
-        .eq('user_id', user.id)
-        .eq('anime_id', mal_id)
-        .maybeSingle()
+      const added = await progressService.addProgress(user.id, anime, initialStatus)
+      setProgress(added)
 
-      if (existingError) {
-        throw existingError
-      }
+      // Track analytics
+      trackProgressAdd(mal_id, title, initialStatus)
 
-      if (existingItem) {
-        setWatchlistItem(existingItem)
-        setWatchlistMessage({
-          animeId: mal_id,
-          type: 'info',
-          text: 'This anime is already in your watchlist.',
-        })
-        return
-      }
-
-      const { data: insertedItem, error: insertError } = await supabase
-        .from('watchlist')
-        .insert({
-          user_id: user.id,
-          anime_id: mal_id,
-          title,
-          image_url,
-          score,
-          status: 'plan_to_watch',
-        })
-        .select('id, anime_id, status')
-        .single()
-
-      if (insertedItem) {
-        trackWatchlistAdd(mal_id, title, 'plan_to_watch')
-      }
-
-      if (insertError) {
-        throw insertError
-      }
-
-      setWatchlistItem(insertedItem)
-      setWatchlistMessage({
-        animeId: mal_id,
+      setProgressMessage({
         type: 'success',
-        text: 'Added to your watchlist.',
+        text: 'Added to your progress tracker!',
       })
     } catch (err) {
-      console.error('Unable to update watchlist:', err)
-      setWatchlistMessage({
-        animeId: mal_id,
+      console.error('Error adding to progress tracker:', err)
+      setProgressMessage({
         type: 'error',
-        text: 'Unable to update your watchlist. Please try again.',
+        text: 'Failed to add to list. Please try again.',
       })
     } finally {
-      setWatchlistLoading(false)
+      setProgressActionLoading(false)
+    }
+  }
+
+  const handleStatusChange = (newStatus) => {
+    setLocalStatus(newStatus)
+    
+    // Auto-fill episodes if marked completed
+    if (newStatus === 'completed' && episodes > 0) {
+      setLocalEpisodes(episodes)
+    }
+  }
+
+  const incrementEpisode = () => {
+    const nextVal = localEpisodes + 1
+    if (episodes > 0 && nextVal > episodes) return
+    setLocalEpisodes(nextVal)
+
+    // Auto-complete if they hit max episodes
+    if (episodes > 0 && nextVal === episodes) {
+      setLocalStatus('completed')
+    }
+  }
+
+  const decrementEpisode = () => {
+    const nextVal = Math.max(0, localEpisodes - 1)
+    setLocalEpisodes(nextVal)
+
+    // If they decrement below max episodes, move Completed back to Watching
+    if (localStatus === 'completed' && episodes > 0 && nextVal < episodes) {
+      setLocalStatus('watching')
+    }
+  }
+
+  const handleEpisodeInputChange = (e) => {
+    const val = e.target.value
+    if (val === '') {
+      setLocalEpisodes(0)
+      return
+    }
+    const num = parseInt(val, 10)
+    if (isNaN(num)) return
+
+    if (num < 0) return
+    if (episodes > 0 && num > episodes) {
+      setLocalEpisodes(episodes)
+      setLocalStatus('completed')
+      return
+    }
+
+    setLocalEpisodes(num)
+    if (episodes > 0 && num === episodes) {
+      setLocalStatus('completed')
+    } else if (localStatus === 'completed' && episodes > 0 && num < episodes) {
+      setLocalStatus('watching')
+    }
+  }
+
+  const saveProgress = async () => {
+    if (!user || !id) return
+    setProgressActionLoading(true)
+    setProgressMessage(null)
+
+    try {
+      const oldStatus = progress.status
+      const oldEpisodes = progress.episodes_watched
+
+      const updated = await progressService.updateProgress(user.id, id, {
+        status: localStatus,
+        episodes_watched: localEpisodes,
+      })
+
+      // Track analytics
+      if (oldStatus !== localStatus) {
+        trackStatusChanged(id, title, oldStatus, localStatus)
+      }
+      if (oldEpisodes !== localEpisodes) {
+        trackProgressUpdate(id, title, localEpisodes)
+      }
+      if (localStatus === 'completed' && oldStatus !== 'completed') {
+        trackAnimeCompleted(id, title)
+      }
+
+      setProgress(updated)
+      setProgressMessage({
+        type: 'success',
+        text: 'Progress updated successfully!',
+      })
+    } catch (err) {
+      console.error('Error saving progress:', err)
+      setProgressMessage({
+        type: 'error',
+        text: 'Failed to update progress. Please try again.',
+      })
+    } finally {
+      setProgressActionLoading(false)
+    }
+  }
+
+  const handleRemoveFromList = async () => {
+    if (!user || !id) return
+    if (!window.confirm(`Are you sure you want to remove ${title} from your list?`)) return
+
+    setProgressActionLoading(true)
+    setProgressMessage(null)
+
+    try {
+      await progressService.deleteProgress(user.id, id)
+      setProgress(null)
+      setProgressMessage({
+        type: 'success',
+        text: 'Removed from your list.',
+      })
+    } catch (err) {
+      console.error('Error removing progress:', err)
+      setProgressMessage({
+        type: 'error',
+        text: 'Failed to remove from list. Please try again.',
+      })
+    } finally {
+      setProgressActionLoading(false)
     }
   }
 
@@ -437,6 +553,9 @@ export default function AnimeDetails() {
                 </div>
               </div>
             </div>
+
+            {/* Community Score Component */}
+            <CommunityScore animeId={id} />
           </div>
 
           <div className="flex-grow space-y-6">
@@ -508,41 +627,131 @@ export default function AnimeDetails() {
               </p>
             </div>
 
-            <div className="pt-4 flex flex-wrap gap-4">
-              <Button
-                variant={isWatchlisted ? 'secondary' : 'primary'}
-                className="flex items-center gap-2"
-                onClick={handleAddToWatchlist}
-                disabled={watchlistLoading}
-              >
-                {isWatchlisted ? (
-                  <>
-                    <BookmarkCheck className="h-4 w-4 text-green-400" />
-                    In Watchlist
-                  </>
-                ) : (
-                  <>
-                    <BookmarkPlus className="h-4 w-4" />
-                    Add to Watchlist
-                  </>
-                )}
-              </Button>
-              <Button variant="secondary">
-                Share Title
-              </Button>
-            </div>
+            {/* Anime Progress Tracking Card */}
+            <div className="bg-surface-card border border-white/5 rounded-2xl p-6 space-y-4 shadow-lg w-full max-w-md">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-300 font-ui flex items-center gap-2">
+                <BookmarkPlus className="h-4 w-4 text-brand" />
+                Tracker Progress
+              </h3>
 
-            {activeWatchlistMessage && (
-              <div
-                className={`rounded-2xl border p-4 text-sm font-ui ${
-                  activeWatchlistMessage.type === 'error'
-                    ? 'border-red-500/20 bg-red-500/10 text-red-200'
-                    : 'border-white/10 bg-surface-card text-gray-300'
-                }`}
-              >
-                {activeWatchlistMessage.text}
-              </div>
-            )}
+              {progressLoading ? (
+                <div className="h-20 animate-pulse bg-surface-chrome rounded-xl" />
+              ) : !progress ? (
+                <div className="flex flex-col gap-3">
+                  <p className="text-xs text-gray-400 font-ui">Track status, episodes watched, and complete series.</p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      className="flex-grow flex items-center justify-center gap-2"
+                      onClick={() => handleAddToList('watching')}
+                      disabled={progressActionLoading}
+                    >
+                      Start Watching
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-grow flex items-center justify-center gap-2"
+                      onClick={() => handleAddToList('plan_to_watch')}
+                      disabled={progressActionLoading}
+                    >
+                      Plan to Watch
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Status selection */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-ui">Status</label>
+                    <select
+                      value={localStatus}
+                      onChange={(e) => handleStatusChange(e.target.value)}
+                      disabled={progressActionLoading}
+                      className="w-full bg-surface-chrome border border-white/5 rounded-lg px-3 py-2 text-sm text-white font-ui focus:outline-none focus:border-brand cursor-pointer"
+                    >
+                      <option value="plan_to_watch">Plan To Watch</option>
+                      <option value="watching">Watching</option>
+                      <option value="completed">Completed</option>
+                      <option value="on_hold">On Hold</option>
+                      <option value="dropped">Dropped</option>
+                    </select>
+                  </div>
+
+                  {/* Episode counter */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest font-ui">Episodes Watched</label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={decrementEpisode}
+                        disabled={localEpisodes === 0 || progressActionLoading}
+                        className="flex items-center justify-center h-9 w-9 bg-surface-chrome border border-white/5 hover:border-brand/40 text-white rounded-lg text-lg font-bold disabled:opacity-40 disabled:hover:border-white/5 cursor-pointer"
+                      >
+                        -
+                      </button>
+
+                      <input
+                        type="text"
+                        pattern="[0-9]*"
+                        value={localEpisodes}
+                        onChange={handleEpisodeInputChange}
+                        disabled={progressActionLoading}
+                        className="w-16 bg-surface-chrome border border-white/5 rounded-lg py-1.5 text-center text-sm text-white font-ui font-semibold focus:outline-none focus:border-brand"
+                      />
+
+                      <span className="text-sm text-gray-400 font-ui">
+                        / {episodes || '?'}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={incrementEpisode}
+                        disabled={(episodes > 0 && localEpisodes >= episodes) || progressActionLoading}
+                        className="flex items-center justify-center h-9 w-9 bg-surface-chrome border border-white/5 hover:border-brand/40 text-white rounded-lg text-lg font-bold disabled:opacity-40 disabled:hover:border-white/5 cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reusable ProgressBar */}
+                  <ProgressBar value={localEpisodes} max={episodes || 0} showText={true} />
+
+                  {/* Actions row */}
+                  <div className="flex items-center justify-between pt-2">
+                    <Button
+                      variant="primary"
+                      onClick={saveProgress}
+                      disabled={progressActionLoading || !isDirty}
+                      className="flex items-center gap-2"
+                    >
+                      {progressActionLoading ? 'Saving...' : 'Update Progress'}
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={handleRemoveFromList}
+                      disabled={progressActionLoading}
+                      className="text-xs font-semibold text-red-400 hover:text-red-350 hover:underline transition-colors duration-200 bg-transparent border-0 cursor-pointer p-0 font-ui"
+                    >
+                      Remove from list
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeProgressMessage && (
+                <div
+                  className={`rounded-xl border p-3.5 text-xs font-ui ${
+                    activeProgressMessage.type === 'error'
+                      ? 'border-red-500/20 bg-red-500/10 text-red-200'
+                      : 'border-green-500/20 bg-green-500/10 text-green-200'
+                  }`}
+                >
+                  {activeProgressMessage.text}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -573,19 +782,24 @@ export default function AnimeDetails() {
 
           <div className="space-y-6">
             <SectionHeader
-              title="Related Titles"
-              subtitle="You might also appreciate"
+              title="You May Also Like"
+              subtitle="Similar anime recommendations"
               useLogoFont={false}
             />
             <div className="grid grid-cols-2 lg:grid-cols-1 gap-6">
-              {related.slice(0, 2).map((relatedAnime) => (
+              {related.slice(0, 4).map((relatedAnime) => (
                 <div key={relatedAnime.mal_id} className="lg:flex lg:gap-4 items-start bg-surface-chrome/30 p-3 rounded-2xl border border-white/5 hover:border-brand/20 transition-all duration-300">
                   <div className="w-20 aspect-[2/3] rounded-lg overflow-hidden flex-shrink-0 mb-3 lg:mb-0 shadow-inner">
                     <img src={relatedAnime.image_url} alt={relatedAnime.title} className="w-full h-full object-cover" />
                   </div>
                   <div className="space-y-2 lg:pt-1">
                     <h4 className="text-xs font-bold text-white font-ui line-clamp-2 hover:text-brand transition-colors duration-300">
-                      <Link to={`/anime/${relatedAnime.mal_id}`}>{relatedAnime.title}</Link>
+                      <Link 
+                        to={`/anime/${relatedAnime.mal_id}`} 
+                        onClick={() => trackRecommendationClick(relatedAnime.mal_id, relatedAnime.title, 'anime_details_similar')}
+                      >
+                        {relatedAnime.title}
+                      </Link>
                     </h4>
                     <div className="flex items-center gap-1 text-[10px] text-yellow-500 font-semibold font-ui">
                       <Star className="h-3 w-3 fill-current" />
@@ -602,12 +816,20 @@ export default function AnimeDetails() {
           </div>
         </div>
 
-        {/* Top Ranked Anime — Internal Linking for SEO */}
+        {/* Community Reviews */}
+        <ReviewSection 
+          animeId={id} 
+          animeTitle={title} 
+          currentUser={user} 
+          onLoginPrompt={() => navigate('/login')} 
+        />
+
+        {/* Trending Anime — Internal Linking */}
         {topAnime.length > 0 && (
           <section className="space-y-6 pt-8 border-t border-white/5">
             <SectionHeader
-              title="Top Ranked Anime"
-              subtitle="Highest-rated anime across global databases"
+              title="Trending Anime"
+              subtitle="Popular titles gaining traction"
               useLogoFont={false}
             />
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">

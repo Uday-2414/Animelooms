@@ -127,6 +127,42 @@ export const trackWatchlistRemove = (animeId, animeTitle, status) => {
   })
 }
 
+export const trackProgressAdd = (animeId, animeTitle, status) => {
+  if (!animeId) return
+  trackEvent('progress_add', {
+    anime_id: String(animeId),
+    anime_title: animeTitle || '',
+    status: status || '',
+  })
+}
+
+export const trackProgressUpdate = (animeId, animeTitle, episodesWatched) => {
+  if (!animeId) return
+  trackEvent('progress_update', {
+    anime_id: String(animeId),
+    anime_title: animeTitle || '',
+    episodes_watched: Number(episodesWatched),
+  })
+}
+
+export const trackAnimeCompleted = (animeId, animeTitle) => {
+  if (!animeId) return
+  trackEvent('anime_completed', {
+    anime_id: String(animeId),
+    anime_title: animeTitle || '',
+  })
+}
+
+export const trackStatusChanged = (animeId, animeTitle, oldStatus, newStatus) => {
+  if (!animeId) return
+  trackEvent('status_changed', {
+    anime_id: String(animeId),
+    anime_title: animeTitle || '',
+    old_status: oldStatus || '',
+    new_status: newStatus || '',
+  })
+}
+
 export const trackLogin = (provider = 'google') => {
   trackEvent('login', {
     provider,
@@ -162,6 +198,40 @@ export const trackApiPerformance = (
   trackEvent('api_performance', payload)
 }
 
+export const trackRecommendationClick = (animeId, animeTitle, source) => {
+  if (!animeId) return
+  trackEvent('recommendation_click', {
+    anime_id: String(animeId),
+    anime_title: animeTitle || '',
+    source: source || 'unknown',
+  })
+}
+
+export const trackRecommendationView = (source) => {
+  trackEvent('recommendation_view', {
+    source: source || 'unknown',
+  })
+}
+
+export const trackDashboardVisit = () => {
+  trackEvent('dashboard_visit', {})
+}
+
+export const trackAchievementUnlock = (achievementId, achievementTitle) => {
+  if (!achievementId) return
+  trackEvent('achievement_unlock', {
+    achievement_id: achievementId,
+    achievement_title: achievementTitle || '',
+  })
+}
+
+export const trackGenrePreference = (genre) => {
+  if (!genre) return
+  trackEvent('genre_preference', {
+    genre: genre,
+  })
+}
+
 export const trackError = (errorMessage, context = '') => {
   if (!errorMessage) return
   trackEvent('app_error', {
@@ -178,8 +248,83 @@ export default {
   trackAnimeView,
   trackWatchlistAdd,
   trackWatchlistRemove,
+  trackProgressAdd,
+  trackProgressUpdate,
+  trackAnimeCompleted,
+  trackStatusChanged,
   trackLogin,
   trackLogout,
   trackApiPerformance,
   trackError,
+  trackRecommendationClick,
+  trackRecommendationView,
+  trackDashboardVisit,
+  trackAchievementUnlock,
+  trackGenrePreference,
+}
+
+export const trackReviewCreated = (animeId, rating) => {
+  if (!animeId) return
+  trackEvent('review_created', {
+    anime_id: String(animeId),
+    rating: Number(rating)
+  })
+}
+
+export const trackReviewUpdated = (animeId, rating) => {
+  if (!animeId) return
+  trackEvent('review_updated', {
+    anime_id: String(animeId),
+    rating: Number(rating)
+  })
+}
+
+export const trackReviewDeleted = (animeId) => {
+  if (!animeId) return
+  trackEvent('review_deleted', {
+    anime_id: String(animeId)
+  })
+}
+
+export const trackAnimeRated = (animeId, rating) => {
+  if (!animeId) return
+  trackEvent('anime_rated', {
+    anime_id: String(animeId),
+    rating: Number(rating)
+  })
+}
+
+export const trackReviewLiked = (reviewId) => {
+  if (!reviewId) return
+  trackEvent('review_liked', {
+    review_id: String(reviewId)
+  })
+}
+
+export default {
+  initAnalytics,
+  trackPageView,
+  trackEvent,
+  trackSearch,
+  trackAnimeView,
+  trackWatchlistAdd,
+  trackWatchlistRemove,
+  trackProgressAdd,
+  trackProgressUpdate,
+  trackAnimeCompleted,
+  trackStatusChanged,
+  trackLogin,
+  trackLogout,
+  trackApiPerformance,
+  trackError,
+  trackRecommendationClick,
+  trackRecommendationView,
+  trackDashboardVisit,
+  trackAchievementUnlock,
+  trackGenrePreference,
+  trackReviewCreated,
+  trackReviewUpdated,
+  trackReviewDeleted,
+  trackAnimeRated,
+  trackReviewLiked,
 }

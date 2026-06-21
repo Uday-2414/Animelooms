@@ -24,6 +24,36 @@ export default function Search() {
   const [refreshKey, setRefreshKey] = useState(0)
   const latestSearchId = useRef(0)
 
+  // Smart Search States
+  const [trending, setTrending] = useState([])
+  const [recentSearches, setRecentSearches] = useState([])
+  const popularSearches = ['Demon Slayer', 'Jujutsu Kaisen', 'One Piece', 'Attack on Titan', 'Naruto']
+
+  // Load initial data
+  useEffect(() => {
+    // Load recent searches
+    try {
+      const saved = localStorage.getItem('anime_recent_searches')
+      if (saved) {
+        setRecentSearches(JSON.parse(saved).slice(0, 5))
+      }
+    } catch (e) {}
+
+    // Load trending for suggestions
+    let isMounted = true
+    const controller = new AbortController()
+    animeService.getTrendingAnime({ signal: controller.signal })
+      .then(data => {
+        if (isMounted) setTrending(data.slice(0, 5))
+      })
+      .catch(() => {})
+
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [])
+
   const normalizedQuery = query.trim()
 
   useEffect(() => {
@@ -84,8 +114,24 @@ export default function Search() {
 
   const handleSearchSubmit = (value) => {
     const nextQuery = value.trim()
+    
+    if (nextQuery) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('anime_recent_searches') || '[]')
+        const updated = [nextQuery, ...saved.filter(q => q.toLowerCase() !== nextQuery.toLowerCase())].slice(0, 5)
+        localStorage.setItem('anime_recent_searches', JSON.stringify(updated))
+        setRecentSearches(updated)
+      } catch (e) {}
+    }
+
     setQuery(nextQuery)
     setSearchParams(nextQuery ? { q: nextQuery } : {})
+  }
+
+  const handleSuggestionClick = (suggestion) => {
+    setQuery(suggestion)
+    setSearchParams({ q: suggestion })
+    // We don't save to localStorage here to avoid duplication, or we can just let handleSearchSubmit do it if we passed it there, but here we just navigate directly.
   }
 
   const handleQueryChange = (event) => {
@@ -99,11 +145,50 @@ export default function Search() {
   const renderContent = () => {
     if (!normalizedQuery) {
       return (
-        <EmptyState
-          icon={<SearchIcon className="h-10 w-10 text-gray-500" />}
-          title="Start searching for your favorite anime."
-          description="Search anime titles to discover your next watch."
-        />
+        <div className="space-y-8 animate-fade-in">
+          {recentSearches.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest font-ui">Recent Searches</h3>
+              <div className="flex flex-wrap gap-2">
+                {recentSearches.map((term, i) => (
+                  <button 
+                    key={`recent-${i}`}
+                    onClick={() => handleSuggestionClick(term)}
+                    className="px-3 py-1.5 bg-surface-chrome border border-white/5 hover:border-brand/40 text-xs text-gray-300 font-semibold rounded-lg font-ui transition-colors cursor-pointer"
+                  >
+                    {term}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest font-ui">Popular Searches</h3>
+            <div className="flex flex-wrap gap-2">
+              {popularSearches.map((term, i) => (
+                <button 
+                  key={`pop-${i}`}
+                  onClick={() => handleSuggestionClick(term)}
+                  className="px-3 py-1.5 bg-brand/10 border border-brand/20 hover:border-brand/50 text-xs text-brand font-semibold rounded-lg font-ui transition-colors cursor-pointer"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {trending.length > 0 && (
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest font-ui">Trending Right Now</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                {trending.map((anime) => (
+                  <AnimeCard key={`trend-${anime.mal_id}`} anime={anime} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )
     }
 
