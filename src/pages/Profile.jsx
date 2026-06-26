@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clock, Eye, Pause, XCircle, Activity, Flame } from 'lucide-react'
+import { CheckCircle2, Clock, Eye, Pause, XCircle, Activity, Flame, Trophy, Sparkles, Tag, Search, Bookmark } from 'lucide-react'
 import SectionHeader from '../components/ui/SectionHeader'
 import ProfileCard from '../components/profile/ProfileCard'
 import StatsCard from '../components/ui/StatsCard'
@@ -12,7 +12,7 @@ import { progressService } from '../services/progressService'
 import { recommendationService } from '../services/recommendationService'
 import { reviewService } from '../services/reviewService'
 import { trackGenrePreference, trackAchievementUnlock } from '../services/analyticsService'
-import { Flame, Trophy, Sparkles, Tag } from 'lucide-react'
+
 
 const STATUS_LABELS = {
   plan_to_watch: 'Plan To Watch',

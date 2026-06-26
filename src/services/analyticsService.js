@@ -240,28 +240,6 @@ export const trackError = (errorMessage, context = '') => {
   })
 }
 
-export default {
-  initAnalytics,
-  trackPageView,
-  trackEvent,
-  trackSearch,
-  trackAnimeView,
-  trackWatchlistAdd,
-  trackWatchlistRemove,
-  trackProgressAdd,
-  trackProgressUpdate,
-  trackAnimeCompleted,
-  trackStatusChanged,
-  trackLogin,
-  trackLogout,
-  trackApiPerformance,
-  trackError,
-  trackRecommendationClick,
-  trackRecommendationView,
-  trackDashboardVisit,
-  trackAchievementUnlock,
-  trackGenrePreference,
-}
 
 export const trackReviewCreated = (animeId, rating) => {
   if (!animeId) return
