@@ -123,6 +123,7 @@ export default function Home() {
 
     async function loadProgress() {
       try {
+        setProgressLoading(true)
         const [data, reviews] = await Promise.all([
           progressService.getProgress(user.id),
           reviewService.getUserRecentReviews(user.id, 3)
