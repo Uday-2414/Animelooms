@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Star, CheckCircle2, Eye, Plus, Clock } from 'lucide-react'
+import { Star, CheckCircle2, Eye, Plus, Clock, UserPlus } from 'lucide-react'
 
 const ACTIVITY_LABELS = {
   rated: { verb: 'rated', icon: Star, color: 'text-yellow-400', iconClass: 'fill-current' },
@@ -7,6 +7,9 @@ const ACTIVITY_LABELS = {
   completed: { verb: 'completed', icon: CheckCircle2, color: 'text-emerald-400', iconClass: '' },
   started_watching: { verb: 'started watching', icon: Eye, color: 'text-blue-400', iconClass: '' },
   added_to_list: { verb: 'added to list', icon: Plus, color: 'text-purple-400', iconClass: '' },
+  created_collection: { verb: 'created a collection', icon: Plus, color: 'text-brand', iconClass: '' },
+  updated_collection: { verb: 'updated collection', icon: Plus, color: 'text-gray-400', iconClass: '' },
+  followed_user: { verb: 'started following', icon: UserPlus, color: 'text-blue-400', iconClass: '' },
 }
 
 function timeAgo(dateStr) {
@@ -27,8 +30,38 @@ export default function ActivityItem({ item }) {
   const avatarUrl = item.profiles?.avatar_url ||
     `https://ui-avatars.com/api/?name=User&background=1d2430&color=ffffff&size=40`
 
-  const displayName = item.profiles?.full_name || item.user_metadata?.full_name || 'A user'
+  const displayName = item.profiles?.full_name || item.profiles?.display_name || item.profiles?.username || 'A user'
   const rating = item.metadata?.rating
+
+  const renderTargetLink = () => {
+    if (item.activity_type === 'followed_user' && item.reference_id) {
+      return (
+        <Link to={`/user/${item.reference_id}`} className="font-semibold text-white hover:text-brand transition-colors truncate">
+          {item.metadata?.target_username || 'a user'}
+        </Link>
+      )
+    }
+    if (['created_collection', 'updated_collection'].includes(item.activity_type) && item.reference_id) {
+      return (
+        <Link to={`/collections/${item.reference_id}`} className="font-semibold text-white hover:text-brand transition-colors truncate">
+          {item.metadata?.collection_title || 'a custom collection'}
+        </Link>
+      )
+    }
+    
+    // Default: Anime Link
+    return (
+      <>
+        <Link
+          to={`/anime/${item.anime_id}`}
+          className="font-semibold text-white hover:text-brand transition-colors truncate"
+        >
+          {item.anime_title}
+        </Link>
+        {rating && <span className="text-yellow-400 font-bold ml-1">{rating}/10</span>}
+      </>
+    )
+  }
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-surface-chrome/20 hover:bg-surface-chrome/40 border border-white/5 hover:border-white/10 transition-all duration-200 group">
@@ -52,13 +85,7 @@ export default function ActivityItem({ item }) {
             {config.verb}
           </span>
           {' '}
-          <Link
-            to={`/anime/${item.anime_id}`}
-            className="font-semibold text-white hover:text-brand transition-colors truncate"
-          >
-            {item.anime_title}
-          </Link>
-          {rating && <span className="text-yellow-400 font-bold ml-1">{rating}/10</span>}
+          {renderTargetLink()}
         </p>
 
         <div className="flex items-center gap-1.5 text-[10px] text-gray-500 font-ui">
@@ -67,7 +94,7 @@ export default function ActivityItem({ item }) {
         </div>
       </div>
 
-      {/* Anime thumbnail */}
+      {/* Anime thumbnail (only if anime_image exists) */}
       {item.anime_image && (
         <Link to={`/anime/${item.anime_id}`} className="flex-shrink-0 w-8 aspect-[2/3] rounded overflow-hidden border border-white/5">
           <img src={item.anime_image} alt={item.anime_title} className="w-full h-full object-cover" />

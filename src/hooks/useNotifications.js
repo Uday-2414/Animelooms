@@ -1,82 +1,65 @@
 import { useState, useEffect, useCallback } from 'react'
 import { notificationService } from '../services/notificationService'
-import { supabase } from '../services/supabaseClient'
 
-export function useNotifications(userId) {
+export function useNotifications(userId, limit = 10) {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(!!userId)
+  const [loading, setLoading] = useState(true)
 
-  const fetchAll = useCallback(async () => {
+  const fetchInitial = useCallback(async () => {
     if (!userId) {
       setNotifications([])
       setUnreadCount(0)
       setLoading(false)
       return
     }
+
     setLoading(true)
     try {
-      const [list, count] = await Promise.all([
-        notificationService.getNotifications(userId, 15),
+      const [notifs, count] = await Promise.all([
+        notificationService.getNotifications(userId, limit),
         notificationService.getUnreadCount(userId)
       ])
-      setNotifications(list)
+      
+      setNotifications(notifs)
       setUnreadCount(count)
     } catch (err) {
-      console.error('[useNotifications] Error:', err)
+      console.error('Failed to fetch notifications', err)
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, limit])
 
   useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+    let isMounted = true
+    
+    fetchInitial()
 
-  // Realtime subscription for instant updates
-  useEffect(() => {
     if (!userId) return
 
-    const channel = supabase
-      .channel(`notifications:${userId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      }, (payload) => {
-        if (payload.new) {
-          setNotifications(prev => [payload.new, ...prev.slice(0, 14)])
-          setUnreadCount(prev => prev + 1)
-        }
-      })
-      .subscribe()
+    // Subscribe to realtime updates
+    const unsubscribe = notificationService.subscribeToNotifications(userId, (newNotif) => {
+      if (!isMounted) return
+      setNotifications(prev => [newNotif, ...prev].slice(0, limit))
+      setUnreadCount(prev => prev + 1)
+    })
 
     return () => {
-      supabase.removeChannel(channel)
+      isMounted = false
+      if (unsubscribe) unsubscribe()
     }
-  }, [userId])
-
-  const markRead = useCallback(async (id) => {
-    await notificationService.markRead(userId, id)
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
-    setUnreadCount(prev => Math.max(0, prev - 1))
-  }, [userId])
+  }, [fetchInitial, userId, limit])
 
   const markAllRead = useCallback(async () => {
-    await notificationService.markAllRead(userId)
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
-    setUnreadCount(0)
-  }, [userId])
+    if (!userId || unreadCount === 0) return
+    try {
+      await notificationService.markAllRead(userId)
+      setUnreadCount(0)
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+    } catch (err) {
+      console.error('Failed to mark notifications as read', err)
+    }
+  }, [userId, unreadCount])
 
-  return {
-    notifications,
-    unreadCount,
-    loading,
-    markRead,
-    markAllRead,
-    refetch: fetchAll
-  }
+  return { notifications, unreadCount, loading, markAllRead, refresh: fetchInitial }
 }
-
-export default useNotifications

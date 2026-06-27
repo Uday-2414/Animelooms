@@ -18,17 +18,23 @@ export const activityService = {
    * Logs a user activity event to the database.
    * Fire-and-forget: errors are caught silently so they never break primary flows.
    */
-  async logActivity(userId, type, animeId, animeTitle, animeImage = null, metadata = {}) {
-    if (!userId || !type || !animeId || !animeTitle) return
+  async logActivity(userId, type, animeId = null, animeTitle = null, animeImage = null, metadata = {}, referenceId = null) {
+    if (!userId || !type) return
+
+    // If it's an anime event, ensure anime details exist
+    if (['rated', 'reviewed', 'completed', 'started_watching', 'added_to_list'].includes(type) && (!animeId || !animeTitle)) {
+      return
+    }
 
     try {
       await supabase.from('user_activity').insert({
         user_id: userId,
         activity_type: type,
-        anime_id: Number(animeId),
-        anime_title: animeTitle,
+        anime_id: animeId ? Number(animeId) : null,
+        anime_title: animeTitle || null,
         anime_image: animeImage || null,
         metadata: metadata || {},
+        reference_id: referenceId || null,
       })
     } catch (err) {
       // Silently fail — activity logging must never break primary user flows

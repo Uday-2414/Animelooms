@@ -153,6 +153,15 @@ export default function UserProfile() {
     </div>
   )
 
+  const themeColorClass = useMemo(() => {
+    switch(profile?.theme_accent) {
+      case 'blue': return 'from-blue-500 via-blue-500/60'
+      case 'emerald': return 'from-emerald-500 via-emerald-500/60'
+      case 'purple': return 'from-purple-500 via-purple-500/60'
+      default: return 'from-brand via-brand/60' // 'brand'
+    }
+  }, [profile?.theme_accent])
+
   return (
     <>
       <SEO
@@ -164,7 +173,7 @@ export default function UserProfile() {
       <div className="space-y-10 pb-12 animate-fade-in font-ui">
         {/* Profile Banner */}
         <div className="bg-surface-card border border-white/5 rounded-3xl overflow-hidden shadow-xl">
-          <div className="h-36 bg-gradient-to-r from-brand via-brand/60 to-surface-chrome relative">
+          <div className={`h-36 bg-gradient-to-r ${themeColorClass} to-surface-chrome relative`}>
             <div className="absolute inset-0 bg-black/20" />
           </div>
           <div className="relative px-6 pb-6 flex flex-col md:flex-row gap-6 items-start md:items-end -mt-16">
@@ -202,6 +211,17 @@ export default function UserProfile() {
 
               {profile?.bio && <p className="text-sm text-gray-300 leading-relaxed max-w-2xl">{profile.bio}</p>}
               
+              {/* Custom Genres (overriding the AI generated ones if set) */}
+              {profile?.favorite_genres && profile.favorite_genres.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {profile.favorite_genres.map(g => (
+                    <span key={g} className="px-2 py-0.5 bg-brand/10 border border-brand/20 text-brand text-[10px] font-bold uppercase tracking-wider rounded-lg">
+                      {g}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 pt-1">
                 <div className="flex items-center gap-1.5 font-bold hover:text-white cursor-pointer transition-colors">
                   <span className="text-white">{followers}</span> Followers
