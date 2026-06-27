@@ -11,6 +11,7 @@ import ActivityFeed from '../community/ActivityFeed'
 import { useGamification } from '../../hooks/useGamification'
 import DashboardGamificationPanel from '../gamification/DashboardGamificationPanel'
 import AnimeCarousel from '../anime/AnimeCarousel'
+import WatchNextCard from './WatchNextCard'
 
 export default function ReturningUserDashboard({
   user,
@@ -29,6 +30,7 @@ export default function ReturningUserDashboard({
   const [animePersonality, setAnimePersonality] = useState('Otaku Member')
   const [streak, setStreak] = useState({ current: 0, longest: 0 })
 
+  const watchNextItem = useMemo(() => recommendationService.getWatchNext(progressList), [progressList])
   const gamification = useGamification(user?.id)
 
   useEffect(() => {
@@ -125,6 +127,11 @@ export default function ReturningUserDashboard({
           achievementsCount={(gamification.achievements?.unlocked || []).length}
           challenges={gamification.challenges?.challenges || []}
         />
+      )}
+
+      {/* Watch Next Smart Continuation Card */}
+      {user && watchNextItem && (
+        <WatchNextCard item={watchNextItem} />
       )}
 
 

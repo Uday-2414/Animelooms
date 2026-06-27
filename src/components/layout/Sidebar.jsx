@@ -1,6 +1,6 @@
 import { useContext } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Search, Bookmark, Trophy, FileText, User, LogOut, LogIn, Users } from 'lucide-react'
+import { Home, Compass, Search, Bookmark, Trophy, FileText, User, LogOut, LogIn, Users } from 'lucide-react'
 import AuthContext from '../../context/AuthContext'
 import LogoName from '../../assets/Logo-name.png'
 import NotificationBell from '../gamification/NotificationBell'
@@ -11,6 +11,7 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'Home', path: '/', icon: <Home className="h-5 w-5" /> },
+    { name: 'Discover', path: '/discover', icon: <Compass className="h-5 w-5" /> },
     { name: 'Search', path: '/search', icon: <Search className="h-5 w-5" /> },
     { name: 'Community', path: '/community', icon: <Users className="h-5 w-5" /> },
     { name: 'Watchlist', path: '/watchlist', icon: <Bookmark className="h-5 w-5" /> },

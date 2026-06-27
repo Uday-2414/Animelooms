@@ -165,6 +165,7 @@ export default function Profile() {
   }, [safeProgressList])
 
   const recentAnime = safeProgressList.slice(0, 5)
+  const personalInsights = useMemo(() => recommendationService.getPersonalInsights(safeProgressList), [safeProgressList])
 
   const profileStats = (
     <div className="space-y-6">
@@ -175,6 +176,28 @@ export default function Profile() {
         <StatsCard label="Plan To Watch" value={stats.planToWatch} icon={<Clock className="h-5 w-5 text-blue-400" />} className="border-blue-500/10" />
         <StatsCard label="On Hold" value={stats.onHold} icon={<Pause className="h-5 w-5 text-yellow-400" />} className="border-yellow-500/10" />
         <StatsCard label="Dropped" value={stats.dropped} icon={<XCircle className="h-5 w-5 text-red-400" />} className="border-red-500/10" />
+      </div>
+
+      {/* AI Personal Insights Card */}
+      <div className="bg-gradient-to-r from-brand/15 via-surface-card to-surface-chrome border border-brand/25 rounded-2xl p-5 shadow-glow space-y-3">
+        <div className="flex items-center gap-2 text-brand font-bold text-xs uppercase tracking-wider font-ui">
+          <Sparkles className="h-4 w-4 animate-pulse text-brand" />
+          <span>AI Personal Viewing Insights</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-ui pt-1">
+          <div className="bg-surface-chrome/40 p-3 rounded-xl border border-white/5">
+            <span className="text-gray-400 font-semibold block">Format Preference</span>
+            <span className="text-white font-bold text-sm">{personalInsights.epPreference}</span>
+          </div>
+          <div className="bg-surface-chrome/40 p-3 rounded-xl border border-white/5">
+            <span className="text-gray-400 font-semibold block">Completion Rate</span>
+            <span className="text-brand font-bold text-sm">{personalInsights.completionRate}% Completed</span>
+          </div>
+          <div className="bg-surface-chrome/40 p-3 rounded-xl border border-white/5">
+            <span className="text-gray-400 font-semibold block">Viewing Persona</span>
+            <span className="text-emerald-400 font-bold text-sm">{personalInsights.activeHabit}</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

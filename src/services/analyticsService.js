@@ -334,6 +334,19 @@ export const trackNotificationRead = (type) => {
   trackEvent('notification_read', { type: type || 'unknown' })
 }
 
+export const trackNaturalSearch = (rawQuery, intentsCount) => {
+  trackEvent('natural_search', { query: rawQuery, intents_count: Number(intentsCount) })
+}
+
+export const trackDiscoverVisit = () => {
+  trackEvent('discover_visit', {})
+}
+
+export const trackWatchNextClick = (animeId, animeTitle) => {
+  if (!animeId) return
+  trackEvent('watch_next_click', { anime_id: String(animeId), anime_title: animeTitle || '' })
+}
+
 export default {
   initAnalytics,
   trackPageView,

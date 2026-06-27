@@ -28,6 +28,7 @@ import Contact from './pages/Contact'
 import NotFound from './pages/NotFound'
 import Community from './pages/Community'
 import UserProfile from './pages/UserProfile'
+import Discover from './pages/Discover'
 
 import ScrollToTop from './components/layout/ScrollToTop'
 
@@ -64,6 +65,7 @@ export default function App() {
             <Route element={<AppLayout />}>
             {/* Public Pages */}
             <Route index element={<Home />} />
+            <Route path="discover" element={<Discover />} />
             <Route path="search" element={<Search />} />
             <Route path="anime/:id" element={<AnimeDetails />} />
             <Route path="rankings" element={<Rankings />} />
