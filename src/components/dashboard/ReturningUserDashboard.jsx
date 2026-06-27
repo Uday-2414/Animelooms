@@ -10,6 +10,7 @@ import { recommendationService } from '../../services/recommendationService'
 import ActivityFeed from '../community/ActivityFeed'
 import { useGamification } from '../../hooks/useGamification'
 import DashboardGamificationPanel from '../gamification/DashboardGamificationPanel'
+import AnimeCarousel from '../anime/AnimeCarousel'
 
 export default function ReturningUserDashboard({
   user,
@@ -206,7 +207,7 @@ export default function ReturningUserDashboard({
       {/* Main Dashboard Layout: Continue Watching & Recently Added */}
       {(continueWatchingList.length > 0 || recentlyAddedList.length > 0 || progressLoading) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Continue Watching (Hidden if empty per Step 9) */}
+          {/* Left Column: Continue Watching */}
           {(continueWatchingList.length > 0 || progressLoading) && (
             <div className={`space-y-6 ${recentlyAddedList.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
               <div className="flex justify-between items-center">
@@ -274,7 +275,7 @@ export default function ReturningUserDashboard({
             </div>
           )}
 
-          {/* Right Column: Recently Added (Hidden if empty per Step 9) */}
+          {/* Right Column: Recently Added */}
           {(recentlyAddedList.length > 0 || progressLoading) && (
             <div className={`space-y-6 ${continueWatchingList.length === 0 ? 'lg:col-span-3' : ''}`}>
               <SectionHeader
@@ -343,8 +344,8 @@ export default function ReturningUserDashboard({
                   </div>
                 </div>
                 {review.title && <h5 className="text-sm font-bold text-white font-ui truncate mb-2 leading-tight">{review.title}</h5>}
-                <p className="text-sm text-gray-400 font-ui line-clamp-3 leading-relaxed">
-                  {review.review || <span className="italic text-gray-600">Rated without review body.</span>}
+                <p className="text-sm text-gray-400 font-ui leading-relaxed">
+                  {review.review || 'Rated without review body.'}
                 </p>
                 <div className="mt-4 pt-3 border-t border-white/5 text-right">
                   <Link to={`/anime/${review.anime_id}`} className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-white font-ui font-bold transition-colors">
@@ -357,50 +358,29 @@ export default function ReturningUserDashboard({
         </section>
       )}
 
-      {/* Recommended For You (with Fallback to Trending Anime per Step 9) */}
-      <section className="space-y-6 pt-6 border-t border-white/5">
-        <SectionHeader
-          title={recommended.length > 0 ? "Recommended For You" : "Trending Anime"}
-          subtitle={recommended.length > 0 ? "Based on your watching history and favorite genres" : "Popular across the community right now"}
-          useLogoFont={false}
-        />
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-          {(recommended.length > 0 ? recommended : trending.slice(0, 5)).map((anime) => (
-            <AnimeCard key={anime.mal_id} anime={anime} />
-          ))}
-        </div>
-      </section>
+      {/* Netflix Top 10 Carousels */}
+      <AnimeCarousel
+        title={recommended.length > 0 ? "Recommended For You" : "Trending Anime"}
+        subtitle={recommended.length > 0 ? "Based on your watching history and favorite genres" : "Popular across the community right now"}
+        items={recommended.length > 0 ? recommended : trending}
+        showRankBadges={recommended.length === 0}
+      />
 
-      {/* Trending For You */}
       {trendingForYou.length > 0 && (
-        <section className="space-y-6 pt-6 border-t border-white/5">
-          <SectionHeader
-            title="Trending For You"
-            subtitle="Popular right now (excluding your tracked items)"
-            useLogoFont={false}
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-            {trendingForYou.map((anime) => (
-              <AnimeCard key={anime.mal_id} anime={anime} />
-            ))}
-          </div>
-        </section>
+        <AnimeCarousel
+          title="Trending For You"
+          subtitle="Popular right now (excluding your tracked items)"
+          items={trendingForYou}
+          showRankBadges={true}
+        />
       )}
 
-      {/* Discover Something New */}
       {discoveryFeed.length > 0 && (
-        <section className="space-y-6 pt-6 border-t border-white/5">
-          <SectionHeader
-            title="Discover Something New"
-            subtitle="A curated mix of trending, seasonal, and top-rated anime"
-            useLogoFont={false}
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-            {discoveryFeed.map((anime) => (
-              <AnimeCard key={anime.mal_id} anime={anime} />
-            ))}
-          </div>
-        </section>
+        <AnimeCarousel
+          title="Discover Something New"
+          subtitle="A curated mix of trending, seasonal, and top-rated anime"
+          items={discoveryFeed}
+        />
       )}
 
       {/* Community Activity */}

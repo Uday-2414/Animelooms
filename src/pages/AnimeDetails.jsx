@@ -18,6 +18,7 @@ import CommunityScore from '../components/reviews/CommunityScore'
 import ReviewSection from '../components/reviews/ReviewSection'
 import AuthContext from '../context/AuthContext'
 import { progressService } from '../services/progressService'
+import { useProgress } from '../context/ProgressContext'
 import ProgressBar from '../components/ui/ProgressBar'
 import SEO from '../components/seo/SEO'
 import Breadcrumb from '../components/seo/Breadcrumb'
@@ -30,12 +31,11 @@ export default function AnimeDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useContext(AuthContext)
+  const { progressList, addProgress: addProgressContext, updateProgress: updateProgressContext, deleteProgress: deleteProgressContext, loading: globalProgressLoading } = useProgress()
   const [anime, setAnime] = useState(null)
   const [related, setRelated] = useState([])
   const [topAnime, setTopAnime] = useState([])
   const [loading, setLoading] = useState(true)
-  const [progress, setProgress] = useState(null)
-  const [progressLoading, setProgressLoading] = useState(true)
   const [progressActionLoading, setProgressActionLoading] = useState(false)
   const [progressMessage, setProgressMessage] = useState(null)
   
@@ -46,51 +46,44 @@ export default function AnimeDetails() {
   const [errorType, setErrorType] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
+  const progress = progressList.find(p => p.anime_id === Number(id)) || null
+  const progressLoading = globalProgressLoading
+
   useEffect(() => {
-    let isMounted = true
-
-    async function loadProgressStatus() {
-      if (!user || !id) {
-        if (isMounted) {
-          setProgressLoading(false)
-          setProgress(null)
-          setLocalEpisodes(0)
-          setLocalStatus('plan_to_watch')
-        }
-        return
-      }
-
-      if (isMounted) {
-        setProgressLoading(true)
-      }
-      
-      try {
-        const data = await progressService.getProgressForAnime(user.id, id)
-        if (isMounted) {
-          setProgress(data)
-          if (data) {
-            setLocalEpisodes(data.episodes_watched)
-            setLocalStatus(data.status)
-          } else {
-            setLocalEpisodes(0)
-            setLocalStatus('plan_to_watch')
-          }
-        }
-      } catch (err) {
-        console.error('Unable to load progress status:', err)
-      } finally {
-        if (isMounted) {
-          setProgressLoading(false)
-        }
-      }
+    if (progress) {
+      setLocalEpisodes(progress.episodes_watched || 0)
+      setLocalStatus(progress.status || 'plan_to_watch')
+    } else {
+      setLocalEpisodes(0)
+      setLocalStatus('plan_to_watch')
     }
+  }, [progress])
 
-    loadProgressStatus()
-
-    return () => {
-      isMounted = false
+  const handleAddToList = async (initialStatus = 'plan_to_watch') => {
+    if (!user) {
+      navigate('/login')
+      return
     }
-  }, [id, user])
+    setProgressActionLoading(true)
+    setProgressMessage(null)
+
+    try {
+      await addProgressContext(anime, initialStatus)
+      trackProgressAdd(id, anime?.title, initialStatus)
+      setProgressMessage({
+        type: 'success',
+        text: 'Added to your progress tracker!',
+      })
+    } catch (err) {
+      console.error('Error adding to progress tracker:', err)
+      setProgressMessage({
+        type: 'error',
+        text: err.message || 'Failed to add to list. Please try again.',
+      })
+    } finally {
+      setProgressActionLoading(false)
+    }
+  }
 
   const isDirty = progress
     ? (progress.episodes_watched !== localEpisodes || progress.status !== localStatus)
@@ -338,36 +331,6 @@ export default function AnimeDetails() {
 
   const activeProgressMessage = progressMessage
 
-  const handleAddToList = async (initialStatus = 'plan_to_watch') => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
-    setProgressActionLoading(true)
-    setProgressMessage(null)
-
-    try {
-      const added = await progressService.addProgress(user.id, anime, initialStatus)
-      setProgress(added)
-
-      // Track analytics
-      trackProgressAdd(mal_id, title, initialStatus)
-
-      setProgressMessage({
-        type: 'success',
-        text: 'Added to your progress tracker!',
-      })
-    } catch (err) {
-      console.error('Error adding to progress tracker:', err)
-      setProgressMessage({
-        type: 'error',
-        text: 'Failed to add to list. Please try again.',
-      })
-    } finally {
-      setProgressActionLoading(false)
-    }
-  }
-
   const handleStatusChange = (newStatus) => {
     setLocalStatus(newStatus)
     
@@ -428,26 +391,25 @@ export default function AnimeDetails() {
     setProgressMessage(null)
 
     try {
-      const oldStatus = progress.status
-      const oldEpisodes = progress.episodes_watched
+      const oldStatus = progress?.status
+      const oldEpisodes = progress?.episodes_watched
 
-      const updated = await progressService.updateProgress(user.id, id, {
+      await updateProgressContext(id, {
         status: localStatus,
         episodes_watched: localEpisodes,
       })
 
       // Track analytics
       if (oldStatus !== localStatus) {
-        trackStatusChanged(id, title, oldStatus, localStatus)
+        trackStatusChanged(id, anime?.title, oldStatus, localStatus)
       }
       if (oldEpisodes !== localEpisodes) {
-        trackProgressUpdate(id, title, localEpisodes)
+        trackProgressUpdate(id, anime?.title, localEpisodes)
       }
       if (localStatus === 'completed' && oldStatus !== 'completed') {
-        trackAnimeCompleted(id, title)
+        trackAnimeCompleted(id, anime?.title)
       }
 
-      setProgress(updated)
       setProgressMessage({
         type: 'success',
         text: 'Progress updated successfully!',
@@ -456,7 +418,7 @@ export default function AnimeDetails() {
       console.error('Error saving progress:', err)
       setProgressMessage({
         type: 'error',
-        text: 'Failed to update progress. Please try again.',
+        text: err.message || 'Failed to update progress. Please try again.',
       })
     } finally {
       setProgressActionLoading(false)
@@ -465,14 +427,13 @@ export default function AnimeDetails() {
 
   const handleRemoveFromList = async () => {
     if (!user || !id) return
-    if (!window.confirm(`Are you sure you want to remove ${title} from your list?`)) return
+    if (!window.confirm(`Are you sure you want to remove ${anime?.title || 'this anime'} from your list?`)) return
 
     setProgressActionLoading(true)
     setProgressMessage(null)
 
     try {
-      await progressService.deleteProgress(user.id, id)
-      setProgress(null)
+      await deleteProgressContext(id)
       setProgressMessage({
         type: 'success',
         text: 'Removed from your list.',
@@ -481,7 +442,7 @@ export default function AnimeDetails() {
       console.error('Error removing progress:', err)
       setProgressMessage({
         type: 'error',
-        text: 'Failed to remove from list. Please try again.',
+        text: err.message || 'Failed to remove from list. Please try again.',
       })
     } finally {
       setProgressActionLoading(false)

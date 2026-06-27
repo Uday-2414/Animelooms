@@ -9,6 +9,7 @@ import LoadingState from '../components/ui/LoadingState'
 import EmptyState from '../components/ui/EmptyState'
 import SEO from '../components/seo/SEO'
 import AuthContext from '../context/AuthContext'
+import { useProgress } from '../context/ProgressContext'
 import { progressService } from '../services/progressService'
 import { recommendationService } from '../services/recommendationService'
 import { reviewService } from '../services/reviewService'
@@ -46,9 +47,7 @@ function mapProgressToAnimeCard(item) {
 
 export default function Profile() {
   const { user, loading: authLoading } = useContext(AuthContext)
-  const [progressList, setProgressList] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const { progressList, loading: progressLoading } = useProgress()
 
   const gamification = useGamification(user?.id)
 
@@ -66,73 +65,48 @@ export default function Profile() {
   useEffect(() => {
     let isMounted = true
 
-    async function loadProfileData() {
-      if (authLoading) return
-
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      setError(false)
+    async function loadAuxiliaryData() {
+      if (authLoading || !user) return
 
       try {
-        const [data, revStats] = await Promise.all([
-          progressService.getProgress(user.id),
-          reviewService.getUserReviewStats(user.id)
-        ])
-        if (isMounted) {
-          setProgressList(data || [])
-          if (revStats) setReviewStats(revStats)
-          
-          if (data && data.length > 0) {
-            const calculatedStreak = recommendationService.getWatchingStreak(data)
-            setStreak(calculatedStreak)
+        const revStats = await reviewService.getUserReviewStats(user.id)
+        if (isMounted && revStats) setReviewStats(revStats)
+        
+        if (progressList && progressList.length > 0) {
+          const calculatedStreak = recommendationService.getWatchingStreak(progressList)
+          setStreak(calculatedStreak)
 
-            recommendationService.getFavoriteGenres(data).then(async (genres) => {
-              if (isMounted && genres.length > 0) {
-                setFavoriteGenres(genres)
-                const personality = recommendationService.getAnimePersonality(genres)
-                setAnimePersonality(personality)
-                if (genres[0]) trackGenrePreference(genres[0])
+          recommendationService.getFavoriteGenres(progressList).then(async (genres) => {
+            if (isMounted && genres.length > 0) {
+              setFavoriteGenres(genres)
+              const personality = recommendationService.getAnimePersonality(genres)
+              setAnimePersonality(personality)
+              if (genres[0]) trackGenrePreference(genres[0])
 
-                // Evaluate achievements and badges asynchronously
-                await achievementService.checkAndUnlock(user.id, {
-                  progressList: data,
-                  reviewStats: revStats,
-                  streak: calculatedStreak
-                })
-                await badgeService.checkAndAwardBadges(user.id, {
-                  progressList: data,
-                  reviewStats: revStats,
-                  genres,
-                  level: gamification.xp?.level || 1
-                })
-                gamification.refetchAll()
-              }
-            })
-          }
+              await achievementService.checkAndUnlock(user.id, {
+                progressList,
+                reviewStats: revStats,
+                streak: calculatedStreak
+              })
+              await badgeService.checkAndAwardBadges(user.id, {
+                progressList,
+                reviewStats: revStats,
+                genres,
+                level: gamification.xp?.level || 1
+              })
+              gamification.refetchAll()
+            }
+          })
         }
       } catch (err) {
-        console.error('Unable to load profile progress:', err)
-        if (isMounted) {
-          setProgressList([])
-          setError(true)
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+        console.error('Error loading auxiliary profile data:', err)
       }
     }
 
-    loadProfileData()
+    loadAuxiliaryData()
 
-    return () => {
-      isMounted = false
-    }
-  }, [authLoading, user])
+    return () => { isMounted = false }
+  }, [authLoading, user, progressList])
 
   useEffect(() => {
     if (!user) return
@@ -168,13 +142,24 @@ export default function Profile() {
   }, [user, animePersonality, gamification.xp?.title])
 
   const stats = useMemo(() => {
+    const total = progressList.length
+    const watching = progressList.filter((item) => item.status === 'watching').length
+    const completed = progressList.filter((item) => item.status === 'completed').length
+    const planToWatch = progressList.filter((item) => item.status === 'plan_to_watch').length
+    const onHold = progressList.filter((item) => item.status === 'on_hold').length
+    const dropped = progressList.filter((item) => item.status === 'dropped').length
+    const totalEpisodesWatched = progressList.reduce((acc, p) => acc + (p.episodes_watched || 0), 0)
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
+
     return {
-      total: progressList.length,
-      watching: progressList.filter((item) => item.status === 'watching').length,
-      completed: progressList.filter((item) => item.status === 'completed').length,
-      planToWatch: progressList.filter((item) => item.status === 'plan_to_watch').length,
-      onHold: progressList.filter((item) => item.status === 'on_hold').length,
-      dropped: progressList.filter((item) => item.status === 'dropped').length,
+      total,
+      watching,
+      completed,
+      planToWatch,
+      onHold,
+      dropped,
+      totalEpisodesWatched,
+      completionRate
     }
   }, [progressList])
 
@@ -227,7 +212,7 @@ export default function Profile() {
     </div>
   )
 
-  if (loading || authLoading) {
+  if (progressLoading || authLoading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <SectionHeader title="My Profile" subtitle="Manage user configurations and review status analytics" />

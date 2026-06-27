@@ -6,8 +6,8 @@ import EmptyState from '../components/ui/EmptyState'
 import Button from '../components/ui/Button'
 import SEO from '../components/seo/SEO'
 import AuthContext from '../context/AuthContext'
+import { useProgress } from '../context/ProgressContext'
 import ProgressBar from '../components/ui/ProgressBar'
-import { progressService } from '../services/progressService'
 import {
   trackProgressUpdate,
   trackStatusChanged,
@@ -44,48 +44,10 @@ const STATUS_THEMES = {
 export default function Watchlist() {
   const navigate = useNavigate()
   const { user } = useContext(AuthContext)
-  const [progressList, setProgressList] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { progressList, loading, error: contextError, updateProgress, deleteProgress } = useProgress()
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('all')
   const [updatingId, setUpdatingId] = useState(null)
-
-  useEffect(() => {
-    let isMounted = true
-
-    async function loadProgress() {
-      if (!user) {
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const data = await progressService.getProgress(user.id)
-        if (isMounted) {
-          setProgressList(data || [])
-        }
-      } catch (err) {
-        console.error('[Watchlist] Load progress error:', err)
-        if (isMounted) {
-          setError('Unable to load your anime progress. Please try again.')
-          setProgressList([])
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    loadProgress()
-
-    return () => {
-      isMounted = false
-    }
-  }, [user])
 
   // Filter progress items based on active tab
   const filteredList = useMemo(() => {
@@ -108,7 +70,7 @@ export default function Watchlist() {
         episodesWatched = item.total_episodes
       }
 
-      const updated = await progressService.updateProgress(user.id, item.anime_id, {
+      await updateProgress(item.anime_id, {
         status: newStatus,
         episodes_watched: episodesWatched,
       })
@@ -120,13 +82,9 @@ export default function Watchlist() {
       if (newStatus === 'completed' && oldStatus !== 'completed') {
         trackAnimeCompleted(item.anime_id, item.anime_title)
       }
-
-      setProgressList((current) =>
-        current.map((p) => (p.id === item.id ? updated : p))
-      )
     } catch (err) {
       console.error('[Watchlist] Status update error:', err)
-      setError('Unable to update progress status. Please try again.')
+      setError(err.message || 'Unable to update progress status. Please try again.')
     } finally {
       setUpdatingId(null)
     }
@@ -149,7 +107,7 @@ export default function Watchlist() {
           ? 'completed'
           : item.status
 
-      const updated = await progressService.updateProgress(user.id, item.anime_id, {
+      await updateProgress(item.anime_id, {
         episodes_watched: nextEpisodes,
         status: newStatus,
       })
@@ -159,13 +117,9 @@ export default function Watchlist() {
       if (newStatus === 'completed' && item.status !== 'completed') {
         trackAnimeCompleted(item.anime_id, item.anime_title)
       }
-
-      setProgressList((current) =>
-        current.map((p) => (p.id === item.id ? updated : p))
-      )
     } catch (err) {
       console.error('[Watchlist] Quick increment error:', err)
-      setError('Unable to update episodes. Please try again.')
+      setError(err.message || 'Unable to update episodes. Please try again.')
     } finally {
       setUpdatingId(null)
     }
@@ -179,15 +133,13 @@ export default function Watchlist() {
     setError(null)
 
     try {
-      await progressService.deleteProgress(user.id, item.anime_id)
+      await deleteProgress(item.anime_id)
       
       // Track analytics
       trackWatchlistRemove(item.anime_id, item.anime_title, item.status)
-
-      setProgressList((current) => current.filter((p) => p.id !== item.id))
     } catch (err) {
       console.error('[Watchlist] Delete progress error:', err)
-      setError('Unable to remove anime. Please try again.')
+      setError(err.message || 'Unable to remove anime. Please try again.')
     } finally {
       setUpdatingId(null)
     }

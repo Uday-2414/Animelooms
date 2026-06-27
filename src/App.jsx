@@ -10,6 +10,7 @@ import AppLayout from './layout/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
 import { ToastProvider } from './components/gamification/ToastNotification'
+import { ProgressProvider } from './context/ProgressContext'
 
 // Pages
 import Home from './pages/Home'
@@ -52,11 +53,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <AnalyticsTracker />
-          <Routes>
-            <Route path="/login" element={<Login />} />
+        <ProgressProvider>
+          <BrowserRouter>
+            <ScrollToTop />
+            <AnalyticsTracker />
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
             {/* Main Application Shell Layout */}
             <Route element={<AppLayout />}>
@@ -90,6 +92,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </ProgressProvider>
       </ToastProvider>
     </ErrorBoundary>
   )

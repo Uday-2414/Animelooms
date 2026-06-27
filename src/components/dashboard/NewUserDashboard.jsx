@@ -3,10 +3,10 @@ import { useNavigate, Link } from 'react-router-dom'
 import SectionHeader from '../ui/SectionHeader'
 import SearchBar from '../ui/SearchBar'
 import Button from '../ui/Button'
-import AnimeCard from '../anime/AnimeCard'
 import NewsCard from '../news/NewsCard'
-import { AnimeCardSkeleton, NewsCardSkeleton } from '../ui/Skeleton'
+import { NewsCardSkeleton } from '../ui/Skeleton'
 import ActivityFeed from '../community/ActivityFeed'
+import AnimeCarousel from '../anime/AnimeCarousel'
 
 export default function NewUserDashboard({
   user,
@@ -76,68 +76,30 @@ export default function NewUserDashboard({
         </div>
       </section>
 
-      {/* Trending Anime */}
-      <section className="space-y-6">
-        <SectionHeader
-          title="Trending Anime"
-          subtitle="Top performing series right now"
-        />
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <AnimeCardSkeleton key={`new-trend-skel-${idx}`} />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-            {trending.slice(0, 5).map((anime) => (
-              <AnimeCard key={anime.mal_id} anime={anime} />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Netflix-Style Top 10 Carousels */}
+      <AnimeCarousel
+        title="Trending Anime"
+        subtitle="Top 10 performing series right now"
+        items={trending}
+        loading={loading}
+        showRankBadges={true}
+      />
 
-      {/* Popular Anime */}
-      <section className="space-y-6">
-        <SectionHeader
-          title="Popular Anime"
-          subtitle="Fan favorites across the community"
-        />
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <AnimeCardSkeleton key={`new-pop-skel-${idx}`} />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-            {popular.slice(0, 5).map((anime) => (
-              <AnimeCard key={anime.mal_id} anime={anime} />
-            ))}
-          </div>
-        )}
-      </section>
+      <AnimeCarousel
+        title="Popular This Week"
+        subtitle="Fan favorites across the community"
+        items={popular}
+        loading={loading}
+        showRankBadges={false}
+      />
 
-      {/* Top Rankings / Airing */}
-      <section className="space-y-6">
-        <SectionHeader
-          title="Top Rankings"
-          subtitle="Highest rated airing series"
-        />
-        {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <AnimeCardSkeleton key={`new-air-skel-${idx}`} />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 animate-fade-in">
-            {topAiring.slice(0, 5).map((anime) => (
-              <AnimeCard key={anime.mal_id} anime={anime} />
-            ))}
-          </div>
-        )}
-      </section>
+      <AnimeCarousel
+        title="Top Ranked Airing"
+        subtitle="Highest rated series currently airing"
+        items={topAiring}
+        loading={loading}
+        showRankBadges={true}
+      />
 
       {/* Latest News */}
       <section className="space-y-6">
@@ -159,7 +121,7 @@ export default function NewUserDashboard({
         )}
       </section>
 
-      {/* Community Activity */}
+      {/* Community Activity Feed */}
       <section className="space-y-6 pt-6 border-t border-white/5">
         <div className="flex items-center justify-between">
           <SectionHeader title="Community Activity" subtitle="See what everyone's watching right now" useLogoFont={false} />
