@@ -41,6 +41,9 @@ export const profileService = {
       .single()
 
     if (error) {
+      if (error.code === '23505' && error.message.includes('username')) {
+        throw new Error('Username is already taken')
+      }
       console.error('[ProfileService] Error upserting profile:', error.message)
       throw error
     }

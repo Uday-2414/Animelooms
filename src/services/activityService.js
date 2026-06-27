@@ -9,6 +9,8 @@ export const ACTIVITY_TYPES = {
   COMPLETED: 'completed',
   STARTED_WATCHING: 'started_watching',
   ADDED_TO_LIST: 'added_to_list',
+  CREATED_COLLECTION: 'created_collection',
+  UPDATED_COLLECTION: 'updated_collection',
 }
 
 export const activityService = {

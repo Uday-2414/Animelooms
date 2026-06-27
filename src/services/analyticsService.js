@@ -347,6 +347,18 @@ export const trackWatchNextClick = (animeId, animeTitle) => {
   trackEvent('watch_next_click', { anime_id: String(animeId), anime_title: animeTitle || '' })
 }
 
+export const trackCollectionCreated = (collectionId) => {
+  trackEvent('collection_created', { collection_id: collectionId })
+}
+
+export const trackCollectionShared = (collectionId) => {
+  trackEvent('collection_shared', { collection_id: collectionId })
+}
+
+export const trackUserFollowed = (targetUserId) => {
+  trackEvent('user_followed', { target_user_id: targetUserId })
+}
+
 export default {
   initAnalytics,
   trackPageView,
@@ -385,5 +397,11 @@ export default {
   trackChallengeCompleted,
   trackStreakContinued,
   trackNotificationRead,
+  trackNaturalSearch,
+  trackDiscoverVisit,
+  trackWatchNextClick,
+  trackCollectionCreated,
+  trackCollectionShared,
+  trackUserFollowed
 }
 

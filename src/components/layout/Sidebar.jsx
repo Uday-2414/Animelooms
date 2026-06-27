@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Home, Compass, Search, Bookmark, Trophy, FileText, User, LogOut, LogIn, Users } from 'lucide-react'
 import AuthContext from '../../context/AuthContext'
 import LogoName from '../../assets/Logo-name.png'
-import NotificationBell from '../gamification/NotificationBell'
+import NotificationDropdown from '../gamification/NotificationDropdown'
 
 export default function Sidebar() {
   const navigate = useNavigate()
@@ -82,7 +82,7 @@ export default function Sidebar() {
               <LogOut className="h-5 w-5 text-gray-500" />
               <span>Logout</span>
             </button>
-            <NotificationBell userId={user.id} />
+            <NotificationDropdown />
           </>
         ) : (
           <button
