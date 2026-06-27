@@ -47,8 +47,9 @@ function mapProgressToAnimeCard(item) {
 
 export default function Profile() {
   const { user, loading: authLoading } = useContext(AuthContext)
-  const { progressList, loading: progressLoading } = useProgress()
+  const { progressList, loading: progressLoading, error } = useProgress()
 
+  const safeProgressList = useMemo(() => (Array.isArray(progressList) ? progressList : []), [progressList])
   const gamification = useGamification(user?.id)
 
   // Intelligence State
@@ -72,31 +73,31 @@ export default function Profile() {
         const revStats = await reviewService.getUserReviewStats(user.id)
         if (isMounted && revStats) setReviewStats(revStats)
         
-        if (progressList && progressList.length > 0) {
-          const calculatedStreak = recommendationService.getWatchingStreak(progressList)
-          setStreak(calculatedStreak)
+        if (safeProgressList.length > 0) {
+          const calculatedStreak = recommendationService.getWatchingStreak(safeProgressList)
+          if (isMounted) setStreak(calculatedStreak)
 
-          recommendationService.getFavoriteGenres(progressList).then(async (genres) => {
-            if (isMounted && genres.length > 0) {
+          recommendationService.getFavoriteGenres(safeProgressList).then(async (genres) => {
+            if (isMounted && Array.isArray(genres) && genres.length > 0) {
               setFavoriteGenres(genres)
               const personality = recommendationService.getAnimePersonality(genres)
               setAnimePersonality(personality)
               if (genres[0]) trackGenrePreference(genres[0])
 
               await achievementService.checkAndUnlock(user.id, {
-                progressList,
+                progressList: safeProgressList,
                 reviewStats: revStats,
                 streak: calculatedStreak
               })
               await badgeService.checkAndAwardBadges(user.id, {
-                progressList,
+                progressList: safeProgressList,
                 reviewStats: revStats,
                 genres,
                 level: gamification.xp?.level || 1
               })
-              gamification.refetchAll()
+              if (gamification.refetchAll) gamification.refetchAll()
             }
-          })
+          }).catch(e => console.warn('[Profile] Genre calculation error:', e))
         }
       } catch (err) {
         console.error('Error loading auxiliary profile data:', err)
@@ -106,13 +107,13 @@ export default function Profile() {
     loadAuxiliaryData()
 
     return () => { isMounted = false }
-  }, [authLoading, user, progressList])
+  }, [authLoading, user, safeProgressList])
 
   useEffect(() => {
     if (!user) return
     profileService.ensureProfile(user.id, user.user_metadata || {}).then(p => {
       if (p?.bio) setBio(p.bio)
-    })
+    }).catch(e => console.warn('[Profile] Profile fetch error:', e))
   }, [user])
 
   const handleSaveBio = async () => {
@@ -142,13 +143,13 @@ export default function Profile() {
   }, [user, animePersonality, gamification.xp?.title])
 
   const stats = useMemo(() => {
-    const total = progressList.length
-    const watching = progressList.filter((item) => item.status === 'watching').length
-    const completed = progressList.filter((item) => item.status === 'completed').length
-    const planToWatch = progressList.filter((item) => item.status === 'plan_to_watch').length
-    const onHold = progressList.filter((item) => item.status === 'on_hold').length
-    const dropped = progressList.filter((item) => item.status === 'dropped').length
-    const totalEpisodesWatched = progressList.reduce((acc, p) => acc + (p.episodes_watched || 0), 0)
+    const total = safeProgressList.length
+    const watching = safeProgressList.filter((item) => item?.status === 'watching').length
+    const completed = safeProgressList.filter((item) => item?.status === 'completed').length
+    const planToWatch = safeProgressList.filter((item) => item?.status === 'plan_to_watch').length
+    const onHold = safeProgressList.filter((item) => item?.status === 'on_hold').length
+    const dropped = safeProgressList.filter((item) => item?.status === 'dropped').length
+    const totalEpisodesWatched = safeProgressList.reduce((acc, p) => acc + (p?.episodes_watched || 0), 0)
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
 
     return {
@@ -161,9 +162,9 @@ export default function Profile() {
       totalEpisodesWatched,
       completionRate
     }
-  }, [progressList])
+  }, [safeProgressList])
 
-  const recentAnime = progressList.slice(0, 5)
+  const recentAnime = safeProgressList.slice(0, 5)
 
   const profileStats = (
     <div className="space-y-6">
@@ -293,7 +294,7 @@ export default function Profile() {
 
         {error ? (
           <EmptyState icon={<Search className="h-10 w-10 text-gray-500" />} title="Profile data unavailable" description="We couldn't load your tracking history." />
-        ) : progressList.length === 0 ? (
+        ) : safeProgressList.length === 0 ? (
           <EmptyState icon={<Bookmark className="h-10 w-10 text-gray-500" />} title="No activity yet" description="Your anime journey starts here." />
         ) : (
           <section className="space-y-6 pt-4 border-t border-white/5">
