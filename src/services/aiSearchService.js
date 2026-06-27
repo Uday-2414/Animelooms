@@ -89,7 +89,7 @@ export const aiSearchService = {
     }
   },
 
-  addSearchHistory(query) {
+  async addSearchHistory(query) {
     if (!query || query.trim().length < 2) return
     try {
       const current = this.getRecentSearches()
@@ -97,6 +97,18 @@ export const aiSearchService = {
       const filtered = current.filter(q => q.toLowerCase() !== cleaned.toLowerCase())
       const updated = [cleaned, ...filtered].slice(0, MAX_HISTORY)
       localStorage.setItem(HISTORY_KEY, JSON.stringify(updated))
+
+      // Sync to Database for AI Analytics (if logged in)
+      const { supabase } = await import('./supabaseClient')
+      const { data: session } = await supabase.auth.getSession()
+      if (session?.session?.user) {
+        const parsed = this.parseIntent(cleaned)
+        await supabase.from('search_history').insert({
+          user_id: session.session.user.id,
+          raw_query: cleaned,
+          parsed_intent: parsed
+        })
+      }
     } catch (e) {
       console.warn('[AISearchService] Failed to save search history', e)
     }
@@ -105,6 +117,8 @@ export const aiSearchService = {
   clearSearchHistory() {
     try {
       localStorage.removeItem(HISTORY_KEY)
+      // We don't wipe the DB history as it's used for AI training/analytics,
+      // but we clear local UI cache.
     } catch (e) {}
   },
 

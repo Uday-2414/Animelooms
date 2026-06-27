@@ -16,10 +16,10 @@ export default function Button({
   className = '',
   ...props
 }) {
-  const baseStyles = 'inline-flex items-center justify-center font-ui font-semibold rounded-md transition-all duration-300 active:scale-95 cursor-pointer disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-background-base'
+  const baseStyles = 'inline-flex items-center justify-center font-ui font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:pointer-events-none focus-ring active-press hover-lift'
   
   const variants = {
-    primary: 'bg-brand text-white hover:bg-brand/90 hover:shadow-[0_0_15px_rgba(192,57,43,0.3)] border-none',
+    primary: 'bg-brand text-white hover:bg-brand/90 hover:shadow-glow border-none',
     secondary: 'bg-surface-card text-white border border-white/10 hover:border-white/20 hover:bg-white/5',
     ghost: 'bg-transparent text-white/70 hover:text-white hover:bg-white/5'
   }

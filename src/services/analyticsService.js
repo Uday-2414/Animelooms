@@ -9,13 +9,18 @@ function hasVercelTrack() {
   return isBrowser && typeof window.va === 'function'
 }
 
+function hasAnalyticsConsent() {
+  if (!isBrowser) return false
+  return localStorage.getItem('animeloom_cookie_consent') === 'all'
+}
+
 function safeGtag(...args) {
-  if (!hasGtag()) return
+  if (!hasGtag() || !hasAnalyticsConsent()) return
   window.gtag(...args)
 }
 
 function safeVercelTrack(name, data) {
-  if (!hasVercelTrack()) return
+  if (!hasVercelTrack() || !hasAnalyticsConsent()) return
   try {
     window.va('event', {
       name,

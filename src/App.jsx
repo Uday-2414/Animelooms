@@ -12,23 +12,27 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { ToastProvider } from './components/gamification/ToastNotification'
 import { ProgressProvider } from './context/ProgressContext'
 
-// Pages
-import Home from './pages/Home'
-import Search from './pages/Search'
-import AnimeDetails from './pages/AnimeDetails'
-import Watchlist from './pages/Watchlist'
-import Profile from './pages/Profile'
-import Rankings from './pages/Rankings'
-import News from './pages/News'
-import Login from './pages/Login'
-import About from './pages/About'
-import Privacy from './pages/Privacy'
-import Terms from './pages/Terms'
-import Contact from './pages/Contact'
-import NotFound from './pages/NotFound'
-import Community from './pages/Community'
-import UserProfile from './pages/UserProfile'
-import Discover from './pages/Discover'
+import { lazy, Suspense } from 'react'
+import GlobalLoader from './components/ui/GlobalLoader'
+
+// Pages (Lazy Loaded)
+const Home = lazy(() => import('./pages/Home'))
+const Search = lazy(() => import('./pages/Search'))
+const AnimeDetails = lazy(() => import('./pages/AnimeDetails'))
+const Watchlist = lazy(() => import('./pages/Watchlist'))
+const Profile = lazy(() => import('./pages/Profile'))
+const Rankings = lazy(() => import('./pages/Rankings'))
+const News = lazy(() => import('./pages/News'))
+const Login = lazy(() => import('./pages/Login'))
+const About = lazy(() => import('./pages/About'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Contact = lazy(() => import('./pages/Contact'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Community = lazy(() => import('./pages/Community'))
+const UserProfile = lazy(() => import('./pages/UserProfile'))
+const DiscoverHub = lazy(() => import('./pages/DiscoverHub'))
+const Settings = lazy(() => import('./pages/Settings'))
 
 import ScrollToTop from './components/layout/ScrollToTop'
 
@@ -58,41 +62,44 @@ export default function App() {
           <BrowserRouter>
             <ScrollToTop />
             <AnalyticsTracker />
-            <Routes>
-              <Route path="/login" element={<Login />} />
+            <Suspense fallback={<GlobalLoader />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
 
-            {/* Main Application Shell Layout */}
-            <Route element={<AppLayout />}>
-            {/* Public Pages */}
-            <Route index element={<Home />} />
-            <Route path="discover" element={<Discover />} />
-            <Route path="search" element={<Search />} />
-            <Route path="anime/:id" element={<AnimeDetails />} />
-            <Route path="rankings" element={<Rankings />} />
-            <Route path="news" element={<News />} />
-            <Route path="about" element={<About />} />
-            <Route path="privacy" element={<Privacy />} />
-            <Route path="terms" element={<Terms />} />
-            <Route path="contact" element={<Contact />} />
-            <Route path="community" element={<Community />} />
-            <Route path="user/:userId" element={<UserProfile />} />
+              {/* Main Application Shell Layout */}
+              <Route element={<AppLayout />}>
+              {/* Public Pages */}
+              <Route index element={<Home />} />
+              <Route path="discover" element={<DiscoverHub />} />
+              <Route path="search" element={<Search />} />
+              <Route path="anime/:id" element={<AnimeDetails />} />
+              <Route path="rankings" element={<Rankings />} />
+              <Route path="news" element={<News />} />
+              <Route path="about" element={<About />} />
+              <Route path="privacy" element={<Privacy />} />
+              <Route path="terms" element={<Terms />} />
+              <Route path="contact" element={<Contact />} />
+              <Route path="community" element={<Community />} />
+              <Route path="user/:userId" element={<UserProfile />} />
 
-            {/* Protected Pages */}
-            <Route
-              element={
-                <ProtectedRoute>
-                  <Outlet />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="watchlist" element={<Watchlist />} />
-              <Route path="profile" element={<Profile />} />
+              {/* Protected Pages */}
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Outlet />
+                  </ProtectedRoute>
+                }
+              >
+                <Route path="watchlist" element={<Watchlist />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
             </Route>
-          </Route>
 
-          {/* Catch-all route for 404 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+            {/* Catch-all route for 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          </Suspense>
       </BrowserRouter>
       </ProgressProvider>
       </ToastProvider>

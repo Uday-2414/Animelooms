@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
+import CookieConsent from '../components/ui/CookieConsent'
 import { useNetworkStatus } from '../hooks/useNetworkStatus'
 import { WifiOff, CheckCircle2 } from 'lucide-react'
 
@@ -84,6 +85,8 @@ export default function AppLayout() {
           <Outlet />
         </div>
         <Footer />
+
+        <CookieConsent />
 
         {/* Global Connection Toasts */}
         {connectionStatus === 'offline' && (

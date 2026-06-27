@@ -43,6 +43,7 @@ export default function UserProfile() {
   const [favoriteGenres, setFavoriteGenres] = useState([])
   const [animePersonality, setAnimePersonality] = useState('Otaku Member')
   const [streak, setStreak] = useState({ current: 0, longest: 0 })
+  const [insights, setInsights] = useState(null)
   
   const [followers, setFollowers] = useState(0)
   const [following, setFollowing] = useState(0)
@@ -99,6 +100,11 @@ export default function UserProfile() {
               setAnimePersonality(recommendationService.getAnimePersonality(genres))
             }
           })
+          
+          // AI Personal Insights
+          const { insightGenerator } = await import('../services/ai/insightGenerator')
+          const generatedInsights = await insightGenerator.generateInsights(progressData)
+          if (isMounted) setInsights(generatedInsights)
         }
 
         trackProfileViewed(userId)
@@ -257,6 +263,35 @@ export default function UserProfile() {
           <SectionHeader title="Earned Badges" subtitle="Special designations & community roles" useLogoFont={false} />
           <BadgeDisplay earnedBadges={gamification.badges?.badges || []} />
         </section>
+
+        {/* AI Personal Insights */}
+        {insights && (
+          <section className="space-y-4">
+            <SectionHeader title="AI Personal Insights" subtitle="Generated analysis of your anime journey" useLogoFont={false} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-4 bg-surface-chrome/30 border border-white/5 rounded-2xl flex flex-col justify-center items-center text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-brand mb-1">Completion Rate</p>
+                <h3 className="text-2xl font-black text-white">{insights.completionRate}%</h3>
+                <p className="text-xs text-gray-400 mt-1">of started anime finished</p>
+              </div>
+              <div className="p-4 bg-surface-chrome/30 border border-white/5 rounded-2xl flex flex-col justify-center items-center text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Average Score</p>
+                <h3 className="text-2xl font-black text-white">{insights.averageScore}</h3>
+                <p className="text-xs text-gray-400 mt-1">Rating Style: <span className="text-white">{insights.ratingHarshness}</span></p>
+              </div>
+              <div className="p-4 bg-surface-chrome/30 border border-white/5 rounded-2xl flex flex-col justify-center items-center text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-1">Preferred Length</p>
+                <h3 className="text-lg font-black text-white">{insights.preferredLength}</h3>
+                <p className="text-xs text-gray-400 mt-1">Based on avg. episode count</p>
+              </div>
+              <div className="p-4 bg-surface-chrome/30 border border-white/5 rounded-2xl flex flex-col justify-center items-center text-center">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-purple-400 mb-1">Total Time</p>
+                <h3 className="text-2xl font-black text-white">{stats.hoursWatched}h</h3>
+                <p className="text-xs text-gray-400 mt-1">Lost to anime</p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Extended Statistics */}
         <section className="space-y-4">
