@@ -7,6 +7,7 @@ import StatsCard from '../ui/StatsCard'
 import AnimeCard from '../anime/AnimeCard'
 import ProgressBar from '../ui/ProgressBar'
 import { recommendationService } from '../../services/recommendationService'
+import ActivityFeed from '../community/ActivityFeed'
 
 export default function ReturningUserDashboard({
   user,
@@ -386,6 +387,17 @@ export default function ReturningUserDashboard({
           </div>
         </section>
       )}
+
+      {/* Community Activity */}
+      <section className="space-y-6 pt-6 border-t border-white/5">
+        <div className="flex items-center justify-between">
+          <SectionHeader title="Community Activity" subtitle="What everyone's watching right now" useLogoFont={false} />
+          <Link to="/community" className="text-xs font-semibold text-brand hover:text-red-400 flex items-center gap-1 font-ui">
+            View All <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        <ActivityFeed limit={8} emptyMessage="No community activity yet." />
+      </section>
     </div>
   )
 }

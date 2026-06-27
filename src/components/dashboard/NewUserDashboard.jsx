@@ -1,4 +1,4 @@
-import { Compass, Play, ArrowRight, Sparkles, Flame, Trophy, Newspaper } from 'lucide-react'
+import { Compass, Play, ArrowRight, Sparkles, Flame, Trophy, Newspaper, Users } from 'lucide-react'
 import { useNavigate, Link } from 'react-router-dom'
 import SectionHeader from '../ui/SectionHeader'
 import SearchBar from '../ui/SearchBar'
@@ -6,6 +6,7 @@ import Button from '../ui/Button'
 import AnimeCard from '../anime/AnimeCard'
 import NewsCard from '../news/NewsCard'
 import { AnimeCardSkeleton, NewsCardSkeleton } from '../ui/Skeleton'
+import ActivityFeed from '../community/ActivityFeed'
 
 export default function NewUserDashboard({
   user,
@@ -156,6 +157,17 @@ export default function NewUserDashboard({
             ))}
           </div>
         )}
+      </section>
+
+      {/* Community Activity */}
+      <section className="space-y-6 pt-6 border-t border-white/5">
+        <div className="flex items-center justify-between">
+          <SectionHeader title="Community Activity" subtitle="See what everyone's watching right now" useLogoFont={false} />
+          <Link to="/community" className="text-xs font-semibold text-brand hover:text-red-400 flex items-center gap-1 font-ui">
+            View All <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+        <ActivityFeed limit={8} emptyMessage="No community activity yet. Start by rating an anime!" />
       </section>
     </div>
   )

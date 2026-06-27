@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from 'react'
-import { CheckCircle2, Clock, Eye, Pause, XCircle, Activity, Flame, Trophy, Sparkles, Tag, Search, Bookmark } from 'lucide-react'
+import { CheckCircle2, Clock, Eye, Pause, XCircle, Activity, Flame, Trophy, Sparkles, Tag, Search, Bookmark, ExternalLink, User } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import SectionHeader from '../components/ui/SectionHeader'
 import ProfileCard from '../components/profile/ProfileCard'
 import StatsCard from '../components/ui/StatsCard'
@@ -11,6 +12,7 @@ import AuthContext from '../context/AuthContext'
 import { progressService } from '../services/progressService'
 import { recommendationService } from '../services/recommendationService'
 import { reviewService } from '../services/reviewService'
+import { profileService } from '../services/profileService'
 import { trackGenrePreference, trackAchievementUnlock } from '../services/analyticsService'
 
 
@@ -53,6 +55,11 @@ export default function Profile() {
   const [streak, setStreak] = useState({ current: 0, longest: 0 })
   const [achievements, setAchievements] = useState([])
   const [reviewStats, setReviewStats] = useState({ count: 0, average: 0, highestRatedAnimeId: null })
+
+  // Bio edit state
+  const [bio, setBio] = useState('')
+  const [bioEditing, setBioEditing] = useState(false)
+  const [bioSaving, setBioSaving] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -117,6 +124,23 @@ export default function Profile() {
       isMounted = false
     }
   }, [authLoading, user])
+
+  // Load bio from profile
+  useEffect(() => {
+    if (!user) return
+    profileService.ensureProfile(user.id, user.user_metadata || {}).then(p => {
+      if (p?.bio) setBio(p.bio)
+    })
+  }, [user])
+
+  const handleSaveBio = async () => {
+    if (!user) return
+    setBioSaving(true)
+    try {
+      await profileService.upsertProfile(user.id, { bio: bio.trim(), avatar_url: user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null })
+      setBioEditing(false)
+    } catch (e) { console.error('[Profile] Bio save error:', e) } finally { setBioSaving(false) }
+  }
 
   const profileUser = useMemo(() => {
     const metadata = user?.user_metadata || {}
@@ -292,6 +316,39 @@ export default function Profile() {
 
         <div className="w-full">
           <ProfileCard user={profileUser} stats={profileStats} />
+        </div>
+
+        {/* Bio + Public Profile link row */}
+        <div className="flex flex-col md:flex-row gap-4 items-start">
+          <div className="flex-grow bg-surface-card border border-white/5 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-500 font-ui">Bio</p>
+              {!bioEditing && <button onClick={() => setBioEditing(true)} className="text-xs text-brand hover:underline font-ui">Edit</button>}
+            </div>
+            {bioEditing ? (
+              <div className="space-y-2">
+                <textarea value={bio} onChange={e => setBio(e.target.value)} maxLength={500} rows={3}
+                  placeholder="Tell the community about yourself..."
+                  className="w-full bg-surface-chrome border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-ui focus:outline-none focus:border-brand/50 resize-none placeholder:text-gray-600" />
+                <div className="flex gap-2">
+                  <button onClick={handleSaveBio} disabled={bioSaving} className="px-4 py-1.5 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand/90 transition-all disabled:opacity-50 font-ui">{bioSaving ? 'Saving...' : 'Save Bio'}</button>
+                  <button onClick={() => setBioEditing(false)} className="px-4 py-1.5 text-gray-400 hover:text-white text-xs font-ui transition-colors">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 font-ui leading-relaxed">{bio || 'No bio yet. Click Edit to add one!'}</p>
+            )}
+          </div>
+          {user && (
+            <Link
+              to={`/user/${user.id}`}
+              className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-surface-card border border-white/10 hover:border-brand/30 rounded-xl text-sm font-semibold text-white font-ui transition-all duration-200 hover:text-brand"
+            >
+              <User className="h-4 w-4" />
+              View Public Profile
+              <ExternalLink className="h-3.5 w-3.5 text-gray-500" />
+            </Link>
+          )}
         </div>
 
         {error ? (

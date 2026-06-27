@@ -24,6 +24,8 @@ import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
 import NotFound from './pages/NotFound'
+import Community from './pages/Community'
+import UserProfile from './pages/UserProfile'
 
 import ScrollToTop from './components/layout/ScrollToTop'
 
@@ -66,6 +68,8 @@ export default function App() {
             <Route path="privacy" element={<Privacy />} />
             <Route path="terms" element={<Terms />} />
             <Route path="contact" element={<Contact />} />
+            <Route path="community" element={<Community />} />
+            <Route path="user/:userId" element={<UserProfile />} />
 
             {/* Protected Pages */}
             <Route

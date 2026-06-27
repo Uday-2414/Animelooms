@@ -279,6 +279,30 @@ export const trackReviewLiked = (reviewId) => {
   })
 }
 
+export const trackProfileViewed = (profileUserId) => {
+  if (!profileUserId) return
+  trackEvent('profile_viewed', { profile_user_id: String(profileUserId) })
+}
+
+export const trackActivityViewed = (source = 'community') => {
+  trackEvent('activity_viewed', { source })
+}
+
+export const trackReviewSorted = (animeId, sort) => {
+  if (!animeId) return
+  trackEvent('review_sorted', { anime_id: String(animeId), sort: sort || 'newest' })
+}
+
+export const trackSpoilerToggle = (reviewId) => {
+  if (!reviewId) return
+  trackEvent('spoiler_toggled', { review_id: String(reviewId) })
+}
+
+export const trackReviewReported = (reviewId) => {
+  if (!reviewId) return
+  trackEvent('review_reported', { review_id: String(reviewId) })
+}
+
 export default {
   initAnalytics,
   trackPageView,
@@ -305,4 +329,9 @@ export default {
   trackReviewDeleted,
   trackAnimeRated,
   trackReviewLiked,
+  trackProfileViewed,
+  trackActivityViewed,
+  trackReviewSorted,
+  trackSpoilerToggle,
+  trackReviewReported,
 }

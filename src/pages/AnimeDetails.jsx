@@ -820,6 +820,7 @@ export default function AnimeDetails() {
         <ReviewSection 
           animeId={id} 
           animeTitle={title} 
+          animeImage={image_url}
           currentUser={user} 
           onLoginPrompt={() => navigate('/login')} 
         />
