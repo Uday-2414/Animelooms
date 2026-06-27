@@ -1,5 +1,7 @@
 import { supabase } from './supabaseClient'
 import { activityService, ACTIVITY_TYPES } from './activityService'
+import { xpService } from './xpService'
+import { challengeService } from './challengeService'
 
 // In-memory cache for user progress to prevent duplicate/unnecessary API requests
 let cache = null
@@ -50,11 +52,19 @@ export const progressService = {
       : ACTIVITY_TYPES.ADDED_TO_LIST
     activityService.logActivity(userId, activityType, anime.mal_id, anime.title, anime.image_url, { status })
 
+    // Award XP & update challenges — fire and forget
+    xpService.awardXP(userId, 'anime_added')
+    challengeService.incrementProgress(userId, 'additions', 1)
+
     return data
   },
 
   async updateProgress(userId, animeId, fields) {
     if (!userId || !animeId) throw new Error('Invalid user or anime ID')
+    
+    // Check old item for diffs
+    const oldItem = await this.getProgressForAnime(userId, animeId)
+
     const updateData = { ...fields, updated_at: new Date().toISOString() }
     if (cache !== null) cache = cache.map((item) => item.anime_id === Number(animeId) ? { ...item, ...updateData } : item)
     const { data, error } = await supabase.from('watchlist').update(updateData).eq('user_id', userId).eq('anime_id', Number(animeId)).select().single()
@@ -64,8 +74,18 @@ export const progressService = {
     // Log activity for meaningful status changes — fire and forget
     if (fields.status === 'completed') {
       activityService.logActivity(userId, ACTIVITY_TYPES.COMPLETED, data.anime_id, data.anime_title, data.anime_image, { episodes_watched: data.episodes_watched })
+      xpService.awardXP(userId, 'anime_completed')
+      challengeService.incrementProgress(userId, 'completions', 1)
     } else if (fields.status === 'watching') {
       activityService.logActivity(userId, ACTIVITY_TYPES.STARTED_WATCHING, data.anime_id, data.anime_title, data.anime_image, {})
+    }
+
+    if (fields.episodes_watched !== undefined && oldItem) {
+      const epDiff = fields.episodes_watched - (oldItem.episodes_watched || 0)
+      if (epDiff > 0) {
+        xpService.awardXP(userId, 'episode_updated', { diff: epDiff })
+        challengeService.incrementProgress(userId, 'episodes', epDiff)
+      }
     }
 
     return data

@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Home, Search, Bookmark, Trophy, FileText, User, LogOut, LogIn, Users } from 'lucide-react'
 import AuthContext from '../../context/AuthContext'
 import LogoName from '../../assets/Logo-name.png'
+import NotificationBell from '../gamification/NotificationBell'
 
 export default function Sidebar() {
   const navigate = useNavigate()
@@ -69,16 +70,19 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* Auth Bottom Trigger */}
-      <div className="px-8">
+      {/* Auth Bottom Trigger & Notification Bell */}
+      <div className="px-8 flex items-center gap-2">
         {user ? (
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-4 py-3.5 px-4 rounded-xl text-sm font-ui font-semibold text-gray-400 hover:text-white hover:bg-brand/10 hover:text-brand-light transition-all duration-300 cursor-pointer"
-          >
-            <LogOut className="h-5 w-5 text-gray-500" />
-            <span>Logout</span>
-          </button>
+          <>
+            <button
+              onClick={handleLogout}
+              className="flex-grow flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-ui font-semibold text-gray-400 hover:text-white hover:bg-brand/10 hover:text-brand-light transition-all duration-300 cursor-pointer"
+            >
+              <LogOut className="h-5 w-5 text-gray-500" />
+              <span>Logout</span>
+            </button>
+            <NotificationBell userId={user.id} />
+          </>
         ) : (
           <button
             onClick={() => navigate('/login')}
@@ -92,3 +96,4 @@ export default function Sidebar() {
     </aside>
   )
 }
+

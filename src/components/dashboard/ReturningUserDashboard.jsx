@@ -8,6 +8,8 @@ import AnimeCard from '../anime/AnimeCard'
 import ProgressBar from '../ui/ProgressBar'
 import { recommendationService } from '../../services/recommendationService'
 import ActivityFeed from '../community/ActivityFeed'
+import { useGamification } from '../../hooks/useGamification'
+import DashboardGamificationPanel from '../gamification/DashboardGamificationPanel'
 
 export default function ReturningUserDashboard({
   user,
@@ -25,6 +27,8 @@ export default function ReturningUserDashboard({
   const [favoriteGenres, setFavoriteGenres] = useState([])
   const [animePersonality, setAnimePersonality] = useState('Otaku Member')
   const [streak, setStreak] = useState({ current: 0, longest: 0 })
+
+  const gamification = useGamification(user?.id)
 
   useEffect(() => {
     let isMounted = true
@@ -111,6 +115,17 @@ export default function ReturningUserDashboard({
           />
         </div>
       </section>
+
+      {/* Gamification Progression Panel */}
+      {user && (
+        <DashboardGamificationPanel
+          xp={gamification.xp?.levelInfo || gamification.xp}
+          streak={streak.current}
+          achievementsCount={(gamification.achievements?.unlocked || []).length}
+          challenges={gamification.challenges?.challenges || []}
+        />
+      )}
+
 
       {/* Quick Stats Grid */}
       <section className="space-y-4">

@@ -303,6 +303,37 @@ export const trackReviewReported = (reviewId) => {
   trackEvent('review_reported', { review_id: String(reviewId) })
 }
 
+export const trackXPEarned = (source, amount, totalXP) => {
+  trackEvent('xp_earned', { source, amount: Number(amount), total_xp: Number(totalXP) })
+}
+
+export const trackLevelUp = (newLevel, totalXP) => {
+  trackEvent('level_up', { level: Number(newLevel), total_xp: Number(totalXP) })
+}
+
+export const trackAchievementUnlocked = (achievementId, title) => {
+  if (!achievementId) return
+  trackEvent('achievement_unlocked', { achievement_id: achievementId, title: title || '' })
+}
+
+export const trackBadgeEarned = (badgeId) => {
+  if (!badgeId) return
+  trackEvent('badge_earned', { badge_id: badgeId })
+}
+
+export const trackChallengeCompleted = (challengeId, title) => {
+  if (!challengeId) return
+  trackEvent('challenge_completed', { challenge_id: challengeId, title: title || '' })
+}
+
+export const trackStreakContinued = (streakDays) => {
+  trackEvent('streak_continued', { streak_days: Number(streakDays) })
+}
+
+export const trackNotificationRead = (type) => {
+  trackEvent('notification_read', { type: type || 'unknown' })
+}
+
 export default {
   initAnalytics,
   trackPageView,
@@ -334,4 +365,12 @@ export default {
   trackReviewSorted,
   trackSpoilerToggle,
   trackReviewReported,
+  trackXPEarned,
+  trackLevelUp,
+  trackAchievementUnlocked,
+  trackBadgeEarned,
+  trackChallengeCompleted,
+  trackStreakContinued,
+  trackNotificationRead,
 }
+

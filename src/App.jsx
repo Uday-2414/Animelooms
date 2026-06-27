@@ -9,6 +9,7 @@ import { trackPageView } from './services/analyticsService'
 import AppLayout from './layout/AppLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
+import { ToastProvider } from './components/gamification/ToastNotification'
 
 // Pages
 import Home from './pages/Home'
@@ -50,14 +51,15 @@ function AnalyticsTracker() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <ScrollToTop />
-        <AnalyticsTracker />
-        <Routes>
-          <Route path="/login" element={<Login />} />
+      <ToastProvider>
+        <BrowserRouter>
+          <ScrollToTop />
+          <AnalyticsTracker />
+          <Routes>
+            <Route path="/login" element={<Login />} />
 
-          {/* Main Application Shell Layout */}
-          <Route element={<AppLayout />}>
+            {/* Main Application Shell Layout */}
+            <Route element={<AppLayout />}>
             {/* Public Pages */}
             <Route index element={<Home />} />
             <Route path="search" element={<Search />} />
@@ -88,6 +90,8 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </ErrorBoundary>
   )
 }
+

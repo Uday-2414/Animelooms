@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { xpService } from './xpService'
 
 export const profileService = {
   /**
@@ -86,6 +87,26 @@ export const profileService = {
 
     return data
   },
+
+  /**
+   * Checks if daily login XP has been claimed today. If not, awards XP and updates timestamp.
+   */
+  async checkAndAwardDailyLoginXP(userId) {
+    if (!userId) return null
+    const todayStr = new Date().toISOString().split('T')[0]
+
+    try {
+      const profile = await this.getProfile(userId)
+      const lastClaimed = profile?.last_login_xp_at ? new Date(profile.last_login_xp_at).toISOString().split('T')[0] : null
+
+      if (lastClaimed !== todayStr) {
+        await this.upsertProfile(userId, { last_login_xp_at: todayStr })
+        await xpService.awardXP(userId, 'daily_login')
+      }
+    } catch (err) {
+      console.warn('[ProfileService] Could not process daily login XP:', err)
+    }
+  }
 }
 
 export default profileService

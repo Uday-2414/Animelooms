@@ -1,6 +1,7 @@
 import { createContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../services/supabaseClient'
 import { trackLogin, trackLogout } from '../services/analyticsService'
+import { profileService } from '../services/profileService'
 
 const AuthContext = createContext({
   user: null,
@@ -22,8 +23,13 @@ export function AuthProvider({ children }) {
 
       if (!isMounted) return
 
-      setUser(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
       setLoading(false)
+
+      if (currentUser) {
+        profileService.checkAndAwardDailyLoginXP(currentUser.id)
+      }
     }
 
     getCurrentSession()
@@ -31,11 +37,15 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
       setLoading(false)
 
       if (event === 'SIGNED_IN') {
         trackLogin(session?.provider || 'google')
+        if (currentUser) {
+          profileService.checkAndAwardDailyLoginXP(currentUser.id)
+        }
       }
     })
 

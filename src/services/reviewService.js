@@ -1,4 +1,6 @@
 import { supabase } from './supabaseClient';
+import { xpService } from './xpService';
+import { challengeService } from './challengeService';
 
 export const reviewService = {
   async getReviewsForAnime(animeId, page = 1, limit = 10) {
@@ -55,7 +57,7 @@ export const reviewService = {
   },
 
   /**
-   * Submits or updates a review. Now includes is_spoiler flag.
+   * Submits or updates a review. Includes is_spoiler flag, XP awards & challenge progress.
    */
   async submitReview(userId, animeId, rating, title, reviewText, isSpoiler = false) {
     if (!userId || !animeId || rating < 1 || rating > 10) throw new Error('Invalid review data');
@@ -68,6 +70,14 @@ export const reviewService = {
       .select()
       .single();
     if (error) { console.error('[ReviewService] Error submitting review:', error.message); throw error; }
+
+    // Fire and forget XP awards & challenge tracking
+    xpService.awardXP(userId, 'anime_rated')
+    if (reviewText && reviewText.trim().length > 0) {
+      xpService.awardXP(userId, 'review_written')
+    }
+    challengeService.incrementProgress(userId, 'ratings', 1)
+
     return data;
   },
 
@@ -93,6 +103,14 @@ export const reviewService = {
     } else {
       const { error } = await supabase.from('review_likes').insert({ user_id: userId, review_id: reviewId });
       if (error) throw error;
+
+      // Award XP to the review author for receiving a like
+      supabase.from('anime_reviews').select('user_id').eq('id', reviewId).single().then(({ data }) => {
+        if (data && data.user_id && data.user_id !== userId) {
+          xpService.awardXP(data.user_id, 'review_liked')
+        }
+      }).catch(err => console.warn('Could not award review like XP:', err))
+
       return true;
     }
   },
